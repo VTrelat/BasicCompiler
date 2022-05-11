@@ -1,0 +1,10 @@
+main(x, y) {
+    z = x;
+    if (x == y) {
+        z = 1;
+    }
+    else {
+        z = 0;
+    }
+    return z;
+}
