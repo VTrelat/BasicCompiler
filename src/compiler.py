@@ -1,4 +1,3 @@
-from turtle import pensize
 import lark
 
 # grammar
@@ -11,6 +10,7 @@ expr : ID -> variable
 cmd : ID "=" expr ";" -> assignment
     | "while" "(" expr ")" "{" bloc "}" -> while
     | "if" "(" expr ")" "{" bloc "}" -> if
+    | "if" "(" expr ")" "{" bloc "}" "else" "{" bloc "}" -> ifelse
     | cmd ";" cmd
     | "printf" "(" expr ")" ";" -> printf
 bloc : (cmd)*
@@ -41,31 +41,39 @@ def prettify_expr(expr):
         raise Exception("Unknown expr")
 
 
-def prettify_cmd(cmd):
+def prettify_cmd(cmd, indent):
     if cmd.data == "assignment":
         return f"{cmd.children[0].value} = {prettify_expr(cmd.children[1])};"
     elif cmd.data in ["while", "if"]:
-        return f"{cmd.data} ({prettify_expr(cmd.children[0])}) {{\n{prettify_bloc(cmd.children[1])}\n}}"
+        return f"{cmd.data} ({prettify_expr(cmd.children[0])}) {{\n{prettify_bloc(cmd.children[1], indent)}\n{indent}}}"
     elif cmd.data == "printf":
         return f"printf({prettify_expr(cmd.children[0])});"
     else:
         raise Exception("Unknown cmd")
 
 
-def prettify_bloc(bloc):
-    return "\n".join([prettify_cmd(cmd) for cmd in bloc.children])
+def prettify_bloc(bloc, indent=""):
+    indent += "    "
+    return indent+f"\n{indent}".join([prettify_cmd(cmd, indent) for cmd in bloc.children])
 
 
 def prettify(program):
     vars = prettify_variables(program.children[0])
-    bloc = prettify_bloc(program.children[1])
+    bloc = prettify_bloc(program.children[1], "")
     ret = prettify_expr(program.children[2])
-    return f"main ({vars}){{\n{bloc}\nreturn ({ret});\n}}"
+    return f"main({vars}) {{\n{bloc}\n    return ({ret});\n}}"
 
 
-# test with a while
 program = grammar.parse(
-    "main(x,y) { x = x + 1; while(x<y) { printf(x); x=x+1; } return(x+y); }")
+    """
+main(x,y) {
+    if (x > y) {
+        printf(x);
+    }
+    else {
+        printf(y);
+    }
+}
+""")
 
-program_parsed = grammar.parse(prettify(program))
-print(program_parsed == program)
+print(prettify(program))
