@@ -64,16 +64,36 @@ def prettify(program):
     return f"main({vars}) {{\n{bloc}\n    return ({ret});\n}}"
 
 
+# Build assembler code
+def body_asm(body):
+    asm = ""
+    for cmd in body.children:
+        if cmd.data == "assignment":
+
+        elif cmd.data == "printf":
+
+        elif cmd.data == "while":
+
+        elif cmd.data == "if":
+
+
+def build_assembler(program):
+    vars = prettify_variables(program.children[0])
+    body = prettify_bloc(program.children[1])
+    ret = prettify_expr(program.children[2])
+
+    return f"section .data \n{vars} \nsection .text \nmain: \n{body} \nreturn: \n    mov eax, {ret} \n    ret"
+
+
 program = grammar.parse(
     """
 main(x,y) {
-    if (x > y) {
-        printf(x);
-    }
-    else {
-        printf(y);
-    }
+x = 1;
+y = 2;
+return(x+y);
 }
 """)
 
 print(prettify(program))
+
+print(build_assembler(program))
