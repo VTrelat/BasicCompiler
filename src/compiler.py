@@ -1,8 +1,7 @@
 import sys
 import lark
 
-CIF: int = 0
-CWHILE: int = 0
+COUNT = iter(range(10000))
 
 # grammar
 grammar = lark.Lark("""
@@ -69,159 +68,95 @@ def prettify(program):
 
 
 # Build assembler code
-def expr_asm(expr, indent=""):
-    asm = ""
-    if expr.data == "variable":
-        return f"{indent}mov rax, [{expr.children[0].value}] \n"
-
-    if expr.data == "number":
-        return f"{indent}mov rax, {expr.children[0].value} \n"
-
-    elif expr.data == "binexpr":
-        if expr.children[1].value == "+":
-            asm += expr_asm(expr.children[2], indent)
-            asm += f"{indent}push rax\n"
-            asm += expr_asm(expr.children[0], indent)
-            asm += f"{indent}add rax, rbx\n"
-        elif expr.children[1].value == "-":
-            asm += expr_asm(expr.children[2], indent)
-            asm += f"{indent}push rax\n"
-            asm += expr_asm(expr.children[0], indent)
-            asm += f"{indent}sub rax, rbx\n"
-        elif expr.children[1].value == "*":
-            asm += expr_asm(expr.children[2], indent)
-            asm += f"{indent}push rax\n"
-            asm += expr_asm(expr.children[0], indent)
-            asm += f"{indent}mul rax, rbx\n"
-        elif expr.children[1].value == "/":
-            asm += expr_asm(expr.children[2], indent)
-            asm += f"{indent}push rax\n"
-            asm += expr_asm(expr.children[0], indent)
-            asm += f"{indent}div rax, rbx\n"
-        elif expr.children[1].value == "^":
-            asm += expr_asm(expr.children[2], indent)
-            asm += f"{indent}push rax\n"
-            asm += expr_asm(expr.children[0], indent)
-            asm += f"{indent}pop rbx\n"
-            asm += f"{indent}pop rax\n"
-            asm += f"{indent}xor rax, rbx\n"
-            asm += f"{indent}push rax\n"
-        elif expr.children[1].value == "==":
-            asm += expr_asm(expr.children[2], indent)
-            asm += f"{indent}push rax\n"
-            asm += expr_asm(expr.children[0], indent)
-            asm += f"{indent}pop rbx\n"
-            asm += f"{indent}pop rax\n"
-            asm += f"{indent}cmp rax, rbx\n"
-            asm += f"{indent}sete al\n"
-            asm += f"{indent}movzb rax, al\n"
-            asm += f"{indent}push rax\n"
-        elif expr.children[1].value == "!=":
-            asm += expr_asm(expr.children[2], indent)
-            asm += f"{indent}push rax\n"
-            asm += expr_asm(expr.children[0], indent)
-            asm += f"{indent}pop rbx\n"
-            asm += f"{indent}pop rax\n"
-            asm += f"{indent}cmp rax, rbx\n"
-            asm += f"{indent}setne al\n"
-            asm += f"{indent}movzb rax, al\n"
-            asm += f"{indent}push rax\n"
-        elif expr.children[1].value == "<":
-            asm += expr_asm(expr.children[2], indent)
-            asm += f"{indent}push rax\n"
-            asm += expr_asm(expr.children[0], indent)
-            asm += f"{indent}pop rbx\n"
-            asm += f"{indent}pop rax\n"
-            asm += f"{indent}cmp rax, rbx\n"
-            asm += f"{indent}setl al\n"
-            asm += f"{indent}movzb rax, al\n"
-            asm += f"{indent}push rax\n"
-        elif expr.children[1].value == ">":
-            asm += expr_asm(expr.children[2], indent)
-            asm += f"{indent}push rax\n"
-            asm += expr_asm(expr.children[0], indent)
-            asm += f"{indent}pop rbx\n"
-            asm += f"{indent}pop rax\n"
-            asm += f"{indent}cmp rax, rbx\n"
-            asm += f"{indent}setg al\n"
-            asm += f"{indent}movzb rax, al\n"
-            asm += f"{indent}push rax\n"
+def var_list(ast):
+    if isinstance(ast, lark.Token):
+        if ast.type == "ID":
+            return {ast.value}
         else:
-            raise Exception("Unknown operator")
+            return set()
+    s = set()
+    for c in ast.children:
+        s.update(var_list(c))
+    return s
 
+
+def compile_expr(expr):
+    if expr.data == "variable":
+        return f"   mov rax, [{expr.children[0].value}]"
+    if expr.data == "number":
+        return f"   mov rax, {expr.children[0].value}"
+    elif expr.data == "binexpr":
+        e1 = compile_expr(expr.children[0])
+        e2 = compile_expr(expr.children[2])
+        op = expr.children[1].value
+        opstr = "add"
+        if op == "-":
+            opstr = "sub"
+        elif op == "*":
+            opstr = "imul"
+        elif op == "/":
+            opstr = "idiv"
+        return f"{e2}\n   push rax\n{e1}\n   pop rbx\n   {opstr} rax rbx\n"
     elif expr.data == "parenexpr":
-        expr_asm(expr.children[1], indent)
-        return ""
-
+        return compile_expr(expr.children[0])
     else:
-        raise Exception("Unknown expr")
-    return asm
+        raise Exception("Not implemented")
 
 
-def cmd_asm(body, indent=""):
-    global CIF, CWHILE
-    asm = ""
-    for cmd in body.children:
-        if cmd.data == "assignment":
-            asm += expr_asm(cmd.children[1], indent)
-            asm += f"{indent}mov [{cmd.children[0].value}], rax\n"
-        elif cmd.data == "printf":
-            expr_asm(cmd.children[0], indent)
-            asm += f"{indent}call _printf\n"
-        elif cmd.data == "while":
-            asm += f"while_{CWHILE}:\n"
-            asm += expr_asm(cmd.children[0], indent)
-            asm += f"{indent}cmp rax, 0\n"
-            asm += f"{indent}je endwhile_{CWHILE}\n"
-            asm += cmd_asm(cmd.children[1], indent)
-            asm += f"{indent}jmp while_{CWHILE}\n"
-            asm += f"endwhile_{CWHILE}\n"
-            CWHILE += 1
-        elif cmd.data == "if":
-            asm += f"if_{CIF}:\n"
-            asm += expr_asm(cmd.children[0], indent)
-            asm += f"{indent}cmp rax, 0\n"
-            asm += f"{indent}je endif_{CIF}\n"
-            asm += cmd_asm(cmd.children[1], indent)
-            asm += f"endif_{CIF}\n"
-            CIF += 1
-        elif cmd.data == "ifelse":
-            asm += f"if_{CIF}:\n"
-            asm += expr_asm(cmd.children[0], indent)
-            asm += f"{indent}cmp rax, 0\n"
-            asm += f"{indent}je endif_{CIF}\n"
-            asm += cmd_asm(cmd.children[1], indent)
-            asm += f"{indent}jmp endif_{CIF}\n"
-            asm += cmd_asm(cmd.children[2], indent)
-            asm += f"endif_{CIF}\n"
-            CIF += 1
-    return asm
+def compile_cmd(cmd):
+    if cmd.data == "assignment":
+        lhs = cmd.children[0].value
+        rhs = compile_expr(cmd.children[1])
+        return f"{rhs}\n   mov [{lhs}], rax"
+    elif cmd.data == "printf":
+        return f"{compile_expr(cmd.children[0])}\n   call _printf"
+    elif cmd.data in {"while", "if"}:
+        e = compile_expr(cmd.children[0])
+        b = compile_bloc(cmd.children[1])
+        index = next(COUNT)
+        return f"{cmd.data}_{index}:\n{e}\ncmp rax, 0\n   jz end{cmd.data}_{index}\n{b}\n   jmp {cmd.data}_{index}\nend{cmd.data}_{index}:\n"
+    elif cmd.data == "ifelse":
+        e = compile_expr(cmd.children[0])
+        b1 = compile_bloc(cmd.children[1])
+        b2 = compile_bloc(cmd.children[2])
+        index = next(COUNT)
+        return f"{cmd.data}_{index}:\n{e}\n   cmp rax, 0\n   jz end{cmd.data}_{index}\n{b1}\njmp endif{cmd.data}_{index}\n{b2}\nendif{cmd.data}_{index}:\n"
+    else:
+        raise Exception("Not implemented")
 
 
-def var_asm(variables, indent=""):
-    return "\n".join([f"{indent}{var.value}: dq 0" for var in variables.children])
+def compile_bloc(bloc):
+    return "\n".join([compile_cmd(t) for t in bloc.children])
 
 
-def build_assembler(program: str) -> str:
-    vars = var_asm(program.children[0], indent="    ")
-    body = cmd_asm(program.children[1], indent="    ")
-    ret = expr_asm(program.children[2], indent="    ")
+def compile(program: str) -> str:
+    with open("template.asm") as f:
+        template = f.read()
+        var_decl = "\n".join([f"{x} : dq 0" for x in var_list(program)])
+        template = template.replace("VAR_DECL", var_decl)
+        template = template.replace(
+            "RETURN", compile_expr(program.children[2]))
+        template = template.replace("BODY", compile_bloc(program.children[1]))
+        f.close()
+        return template
 
-    return f"extern _printf\nglobal _main\nsection .data \n{vars} \nsection .text \n_main: \n{body} \nreturn: \n{ret}    ret"
+
+with open("program.opale", "r") as f:
+    program = grammar.parse(str(f.read()))
+    print(compile(program))
+
+# def save_to_file(filename: str, content: str) -> None:
+#     with open(filename, "w") as f:
+#         f.write(content)
 
 
-def save_to_file(filename: str, content: str) -> None:
-    with open(filename, "w") as f:
-        f.write(content)
-
-
-if len(sys.argv) > 1:
-    with open(sys.argv[1], "r") as f:
-        print("Parsing...")
-        program = grammar.parse(str(f.read()))
-        save_to_file(sys.argv[1], prettify(program))
-    print("Saving to file...")
-    save_to_file(sys.argv[2], build_assembler(program))
-    print(f"Saved to {sys.argv[2]}")
-else:
-    print("Give two arguments: program and filename")
+# if len(sys.argv) > 1:
+#     with open(sys.argv[1], "r") as f:
+#         print("Parsing...")
+#         program = grammar.parse(str(f.read()))
+#         save_to_file(sys.argv[1], prettify(program))
+#     print("Saving to file...")
+#     save_to_file(sys.argv[2], build_assembler(program))
+#     print(f"Saved to {sys.argv[2]}")
+# else:
+#     print("Give two arguments: program and filename")
