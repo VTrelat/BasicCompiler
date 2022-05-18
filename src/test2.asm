@@ -5,7 +5,6 @@ section .data
 
 fmt :
 db "%d", 10, 0
-VAR_DECL
 
 section .text
 _main :
@@ -14,10 +13,6 @@ _main :
    push rdi
    push rsi
 
-VAR_INIT
-BODY
-RETURN
-   
    mov rdi, fmt
    mov rsi, rax
    xor rax, rax
