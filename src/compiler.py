@@ -13,16 +13,19 @@ expr : ID -> variable
      | expr OP expr -> binexpr
      | "(" expr ")" -> parenexpr
 cmd : TYPE ID "=" expr ";" -> assignment
+    | function
     | "while" "(" expr ")" "{" bloc "}" -> while
     | "if" "(" expr ")" "{" bloc "}" -> if
     | "if" "(" expr ")" "{" bloc "}" "else" "{" bloc "}" -> ifelse
     | cmd ";" cmd
     | "printf" "(" expr ")" ";" -> printf
     | COMMENT
+    | "giveMeBack" expr ";" -> return
 bloc : (cmd)*
+function : TYPE ID "(" variables ")" "{" bloc "}"
 TYPE : "int" | "int" "*" | "char" | "char" "*"
 COMMENT : "(*" /(.|\\n|\\r)+/ "*)" |  "//" /(.)+/ NEWLINE
-program : "main" "(" variables ")" "{" bloc "giveMeBack" expr ";" "}" -> main
+program : function+
 NUMBER : /\d+/
 OP : "+" | "-" | "*" | "/" | "^" | "==" | "!=" | "<" | ">"
 ID : /[a-zA-Z][a-zA-Z0-9]*/
@@ -41,6 +44,12 @@ def prettify_variables(variables):
         else:
             out += f"{variables.children[i].value}, "
     return out[:-2]
+
+
+def prettify_function(function):
+    vars = prettify_variables(function.children[2])
+    bloc = prettify_bloc(function.children[3], "")
+    return f"{function.children[0].value} {function.children[1].value}({vars}) {{\n{bloc}\n}}"
 
 
 def prettify_expr(expr):
@@ -65,6 +74,8 @@ def prettify_cmd(cmd, indent):
         return f"printf({prettify_expr(cmd.children[0])});"
     elif cmd.data == "COMMENT":
         return ""
+    elif cmd.data == "return":
+        return f"giveMeBack {prettify_expr(cmd.children[0])};"
     else:
         raise Exception("Unknown cmd")
 
@@ -75,10 +86,7 @@ def prettify_bloc(bloc, indent=""):
 
 
 def prettify(program):
-    vars = prettify_variables(program.children[0])
-    bloc = prettify_bloc(program.children[1], "")
-    ret = prettify_expr(program.children[2])
-    return f"main({vars}) {{\n{bloc}\n    giveMeBack {ret};\n}}"
+    return "\n".join([prettify_function(f) for f in program.children])
 
 
 # Build assembler code
@@ -152,6 +160,7 @@ def compile_var(ast):
 
 def compile(program: str) -> str:
     with open("template.asm") as f:
+        print(var_list(program))
         template = f.read()
         var_decl = "\n".join([f"{x} : dq 0" for x in var_list(program)])
         template = template.replace("VAR_DECL", var_decl)
