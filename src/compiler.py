@@ -110,7 +110,7 @@ def compile_cmd(cmd):
         return f"{rhs}\n   mov [{lhs}], rax"
     elif cmd.data == "printf":
         return f"{compile_expr(cmd.children[0])}\n   mov rdi, fmt\n   mov rsi, rax\n   xor rax, rax\n   call _printf"
-    elif cmd.data =="while":
+    elif cmd.data == "while":
         e = compile_expr(cmd.children[0])
         b = compile_bloc(cmd.children[1])
         index = next(COUNT)
@@ -134,11 +134,13 @@ def compile_cmd(cmd):
 def compile_bloc(bloc):
     return "\n".join([compile_cmd(t) for t in bloc.children])
 
+
 def compile_var(ast):
     s = ""
     for i in range(len(ast.children)):
         s += f"   mov rbx, [rbp-0x10]\n   mov rdi, [rbx+{8*(i+1)}]\n   call _atoi\n   mov [{ast.children[i].value}], rax\n"
     return s
+
 
 def compile(program: str) -> str:
     with open("template.asm") as f:
@@ -148,7 +150,8 @@ def compile(program: str) -> str:
         template = template.replace(
             "RETURN", compile_expr(program.children[2]))
         template = template.replace("BODY", compile_bloc(program.children[1]))
-        template = template.replace("VAR_INIT", compile_var(program.children[0]))
+        template = template.replace(
+            "VAR_INIT", compile_var(program.children[0]))
         f.close()
         return template
 
