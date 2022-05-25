@@ -1,5 +1,4 @@
-main(x, y) {
+main(int x, char y) {
     printf(x);
-    // x is displayed
-    return y;
+    giveMeBack y;
 }

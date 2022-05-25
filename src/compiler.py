@@ -6,23 +6,27 @@ op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div"}
 
 # grammar
 grammar = lark.Lark("""
-variables : ID ("," ID)*
+%import common.NEWLINE
+variables : TYPE ID ("," TYPE ID)*
 expr : ID -> variable
      | NUMBER -> number
      | expr OP expr -> binexpr
      | "(" expr ")" -> parenexpr
-cmd : ID "=" expr ";" -> assignment
+cmd : TYPE ID "=" expr ";" -> assignment
     | "while" "(" expr ")" "{" bloc "}" -> while
     | "if" "(" expr ")" "{" bloc "}" -> if
     | "if" "(" expr ")" "{" bloc "}" "else" "{" bloc "}" -> ifelse
     | cmd ";" cmd
     | "printf" "(" expr ")" ";" -> printf
-    | comment
+    | COMMENT
 bloc : (cmd)*
-program : "main" "(" variables ")" "{" bloc "return" expr ";" "}" -> main
+TYPE : "int" | "int" "*" | "char" | "char" "*"
+COMMENT : "(*" /(.|\\n|\\r)+/ "*)" |  "//" /(.)+/ NEWLINE
+program : "main" "(" variables ")" "{" bloc "giveMeBack" expr ";" "}" -> main
 NUMBER : /\d+/
 OP : "+" | "-" | "*" | "/" | "^" | "==" | "!=" | "<" | ">"
 ID : /[a-zA-Z][a-zA-Z0-9]*/
+%ignore COMMENT
 %import common.WS
 %ignore WS
 """, start="program")
@@ -30,7 +34,13 @@ ID : /[a-zA-Z][a-zA-Z0-9]*/
 
 # prettify parsed program
 def prettify_variables(variables):
-    return ", ".join([var.value for var in variables.children])
+    out = ""
+    for i in range(len(variables.children)):
+        if i % 2 == 0:
+            out += f"{variables.children[i].value} "
+        else:
+            out += f"{variables.children[i].value}, "
+    return out[:-2]
 
 
 def prettify_expr(expr):
@@ -53,7 +63,7 @@ def prettify_cmd(cmd, indent):
         return f"if ({prettify_expr(cmd.children[0])}) {{\n{prettify_bloc(cmd.children[1], indent)}\n{indent}}}\n{indent}else {{\n{prettify_bloc(cmd.children[2], indent)}\n{indent}}}"
     elif cmd.data == "printf":
         return f"printf({prettify_expr(cmd.children[0])});"
-    elif cmd.data == "comment":
+    elif cmd.data == "COMMENT":
         return ""
     else:
         raise Exception("Unknown cmd")
@@ -68,7 +78,7 @@ def prettify(program):
     vars = prettify_variables(program.children[0])
     bloc = prettify_bloc(program.children[1], "")
     ret = prettify_expr(program.children[2])
-    return f"main({vars}) {{\n{bloc}\n    return {ret};\n}}"
+    return f"main({vars}) {{\n{bloc}\n    giveMeBack {ret};\n}}"
 
 
 # Build assembler code
@@ -123,7 +133,7 @@ def compile_cmd(cmd):
         b2 = compile_bloc(cmd.children[2])
         index = next(COUNT)
         return f"{cmd.data}{index} :\n{e}\n   cmp rax, 0\n   jz end{cmd.data}{index}\n{b1}\njmp end{cmd.data}{index}\n{b2}\nend{cmd.data}{index} :\n"
-    elif cmd.data == "comment":
+    elif cmd.data == "COMMENT":
         return ""
     else:
         raise Exception("Not implemented")
