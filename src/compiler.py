@@ -188,7 +188,7 @@ if len(sys.argv) > 1:
         program = grammar.parse(str(f.read()))
         save_to_file(sys.argv[1], prettify(program))
     print("Saving to file...")
-    # save_to_file(sys.argv[2], compile(program))
-    # print(f"Saved to {sys.argv[2]}")
+    save_to_file(sys.argv[2], compile(program))
+    print(f"Saved to {sys.argv[2]}")
 else:
     print("Give two arguments: program and filename")
