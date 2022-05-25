@@ -65,7 +65,7 @@ def prettify_expr(expr):
 
 def prettify_cmd(cmd, indent):
     if cmd.data == "assignment":
-        return f"{cmd.children[0].value} = {prettify_expr(cmd.children[1])};"
+        return f"{cmd.children[0].value} {cmd.children[1].value} = {prettify_expr(cmd.children[2])};"
     elif cmd.data in ["while", "if"]:
         return f"{cmd.data} ({prettify_expr(cmd.children[0])}) {{\n{prettify_bloc(cmd.children[1], indent)}\n{indent}}}"
     elif cmd.data == "ifelse":
@@ -86,6 +86,7 @@ def prettify_bloc(bloc, indent=""):
 
 
 def prettify(program):
+    print(var_list(program))
     return "\n".join([prettify_function(f) for f in program.children])
 
 
@@ -160,7 +161,6 @@ def compile_var(ast):
 
 def compile(program: str) -> str:
     with open("template.asm") as f:
-        print(var_list(program))
         template = f.read()
         var_decl = "\n".join([f"{x} : dq 0" for x in var_list(program)])
         template = template.replace("VAR_DECL", var_decl)
@@ -188,7 +188,7 @@ if len(sys.argv) > 1:
         program = grammar.parse(str(f.read()))
         save_to_file(sys.argv[1], prettify(program))
     print("Saving to file...")
-    save_to_file(sys.argv[2], compile(program))
-    print(f"Saved to {sys.argv[2]}")
+    # save_to_file(sys.argv[2], compile(program))
+    # print(f"Saved to {sys.argv[2]}")
 else:
     print("Give two arguments: program and filename")

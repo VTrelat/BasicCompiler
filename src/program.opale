@@ -1,7 +1,5 @@
-int fun(int x) {
-    giveMeBack x;
-}
-int main(int x, char y) {
-    printf(x);
-    giveMeBack y;
+int main(int x) {
+    int y = 2;
+    int z = 3;
+    giveMeBack x + y + z;
 }
