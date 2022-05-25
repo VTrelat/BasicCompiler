@@ -19,8 +19,6 @@ cmd : ID "=" expr ";" -> assignment
     | "printf" "(" expr ")" ";" -> printf
     | comment
 bloc : (cmd)*
-comment : "//" line
-line : /(!`x` .)+/
 program : "main" "(" variables ")" "{" bloc "return" expr ";" "}" -> main
 NUMBER : /\d+/
 OP : "+" | "-" | "*" | "/" | "^" | "==" | "!=" | "<" | ">"
