@@ -2,7 +2,7 @@ import sys
 import lark
 
 COUNT = iter(range(10000))
-op2asm = {"+": "add", "-": "sub", "*": "imul", "/": "idiv"}
+op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div"}
 
 # grammar
 grammar = lark.Lark("""
@@ -17,7 +17,10 @@ cmd : ID "=" expr ";" -> assignment
     | "if" "(" expr ")" "{" bloc "}" "else" "{" bloc "}" -> ifelse
     | cmd ";" cmd
     | "printf" "(" expr ")" ";" -> printf
+    | comment
 bloc : (cmd)*
+comment : "//" line
+line : /(!`x` .)+/
 program : "main" "(" variables ")" "{" bloc "return" expr ";" "}" -> main
 NUMBER : /\d+/
 OP : "+" | "-" | "*" | "/" | "^" | "==" | "!=" | "<" | ">"
@@ -52,6 +55,8 @@ def prettify_cmd(cmd, indent):
         return f"if ({prettify_expr(cmd.children[0])}) {{\n{prettify_bloc(cmd.children[1], indent)}\n{indent}}}\n{indent}else {{\n{prettify_bloc(cmd.children[2], indent)}\n{indent}}}"
     elif cmd.data == "printf":
         return f"printf({prettify_expr(cmd.children[0])});"
+    elif cmd.data == "comment":
+        return ""
     else:
         raise Exception("Unknown cmd")
 
@@ -104,18 +109,24 @@ def compile_cmd(cmd):
         rhs = compile_expr(cmd.children[1])
         return f"{rhs}\n   mov [{lhs}], rax"
     elif cmd.data == "printf":
-        return f"{compile_expr(cmd.children[0])}\n   call _printf"
-    elif cmd.data in {"while", "if"}:
+        return f"{compile_expr(cmd.children[0])}\n   mov rdi, fmt\n   mov rsi, rax\n   xor rax, rax\n   call _printf"
+    elif cmd.data =="while":
         e = compile_expr(cmd.children[0])
         b = compile_bloc(cmd.children[1])
         index = next(COUNT)
-        return f"{cmd.data}{index} :\n{e}\ncmp rax, 0\n   jz end{cmd.data}{index}\n{b}\n   jmp {cmd.data}{index}\nend{cmd.data}{index} :\n"
+        return f"{cmd.data}{index} :\n{e}\n   cmp rax, 0\n   jz end{cmd.data}{index}\n{b}\n   jmp {cmd.data}{index}\nend{cmd.data}{index} :\n"
+    elif cmd.data == "if":
+        e = compile_expr(cmd.children[0])
+        b = compile_bloc(cmd.children[1])
+        return f"{cmd.data} :\n{e}\n   cmp rax, 0\n   jz end{cmd.data}\n{b}\nend{cmd.data} :\n"
     elif cmd.data == "ifelse":
         e = compile_expr(cmd.children[0])
         b1 = compile_bloc(cmd.children[1])
         b2 = compile_bloc(cmd.children[2])
         index = next(COUNT)
         return f"{cmd.data}{index} :\n{e}\n   cmp rax, 0\n   jz end{cmd.data}{index}\n{b1}\njmp end{cmd.data}{index}\n{b2}\nend{cmd.data}{index} :\n"
+    elif cmd.data == "comment":
+        return ""
     else:
         raise Exception("Not implemented")
 

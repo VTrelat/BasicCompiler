@@ -5,8 +5,8 @@ section .data
 
 fmt :
 db "%d", 10, 0
-x : dq 0
 y : dq 0
+x : dq 0
 
 section .text
 _main :
@@ -24,8 +24,30 @@ _main :
    call _atoi
    mov [y], rax
 
-   mov rax, 0
-   mov [y], rax
+while0 :
+   mov rax, 5
+   push rax
+   mov rax, [x]
+   pop rbx
+   sub rax, rbx
+
+   cmp rax, 0
+   jz endwhile0
+   mov rax, [y]
+   mov rdi, fmt
+   mov rsi, rax
+   xor rax, rax
+   call _printf
+   mov rax, 1
+   push rax
+   mov rax, [x]
+   pop rbx
+   sub rax, rbx
+
+   mov [x], rax
+   jmp while0
+endwhile0 :
+
    mov rax, [y]
    
    mov rdi, fmt

@@ -1,4 +1,5 @@
 main(x, y) {
-    y = 0;
+    printf(x);
+    // x is displayed
     return y;
 }
