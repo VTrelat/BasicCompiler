@@ -1,5 +1,11 @@
+int f1(int z) {
+    giveMeBack z + 1;
+}
+int f2(int a, int b) {
+    giveMeBack a + b;
+}
 int main(int x) {
     int * p = 2;
     int a = 1;
-    giveMeBack x + y + z;
+    giveMeBack a;
 }

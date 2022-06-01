@@ -66,8 +66,8 @@ def prettify_expr(expr):
 
 def prettify_cmd(cmd, indent):
     if cmd.data == "assignment":
-        t = cmd.children[0].value.strip()
-        n = count_char(t, "*")
+        n = count_char(cmd.children[0], "*")
+        t = cmd.children[0].value.replace('*', '').strip()
         t = t.split(" ")[0] + (1 if n != 0 else 0)*" " + n*'*'
         return f"{t} {cmd.children[1].value} = {prettify_expr(cmd.children[2])};"
     elif cmd.data in ["while", "if"]:
@@ -115,12 +115,16 @@ def compile_expr(expr):
         e1 = compile_expr(expr.children[0])
         e2 = compile_expr(expr.children[2])
         op = expr.children[1].value
-
         return f"{e2}\n   push rax\n{e1}\n   pop rbx\n   {op2asm[op]} rax, rbx\n"
     elif expr.data == "parenexpr":
         return compile_expr(expr.children[0])
+    elif expr.data == "function":
+        out = "_"+expr.children[1].value.strip()
+        return (f"{out}:\n   push rbp\n   mov rbp, rsp\n   push rdi\n   push rsi\n"
+                f"\n   FUNCTION BODY HERE\n\n"
+                f"   pop rdi\n   pop rsi\n   add rsp, 16\n   pop rbp\n   ret\n\n")
     else:
-        raise Exception("Not implemented")
+        raise Exception("Not implemented : "+expr.data)
 
 
 def compile_cmd(cmd):
@@ -167,11 +171,19 @@ def compile(program: str) -> str:
         template = f.read()
         var_decl = "\n".join([f"{x} : dq 0" for x in var_list(program)])
         template = template.replace("VAR_DECL", var_decl)
-        template = template.replace(
-            "RETURN", compile_expr(program.children[2]))
-        template = template.replace("BODY", compile_bloc(program.children[1]))
-        template = template.replace(
-            "VAR_INIT", compile_var(program.children[0]))
+
+        func_asm = ""
+        for child in program.children:
+            # child.data : function symbol
+            # child.children[0].value : function type
+            # child.children[1].value : function name
+            func_asm += compile_expr(child)
+        template = template.replace("FUN_DECL", func_asm)
+        # template = template.replace(
+        #     "RETURN", compile_expr(program.children[2]))
+        # template = template.replace("BODY", compile_bloc(program.children[1]))
+        # template = template.replace(
+        #     "VAR_INIT", compile_var(program.children[0]))
         f.close()
         return template
 
