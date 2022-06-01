@@ -1,5 +1,6 @@
 import sys
 import lark
+from utils import *
 
 COUNT = iter(range(10000))
 op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div"}
@@ -23,7 +24,7 @@ cmd : TYPE ID "=" expr ";" -> assignment
     | "giveMeBack" expr ";" -> return
 bloc : (cmd)*
 function : TYPE ID "(" variables ")" "{" bloc "}"
-TYPE : "int" | "int" "*" | "char" | "char" "*"
+TYPE : /(int|char)\s*[*\s*]*/
 COMMENT : "(*" /(.|\\n|\\r)+/ "*)" |  "//" /(.)+/ NEWLINE
 program : function+
 NUMBER : /\d+/
@@ -40,7 +41,7 @@ def prettify_variables(variables):
     out = ""
     for i in range(len(variables.children)):
         if i % 2 == 0:
-            out += f"{variables.children[i].value} "
+            out += f"{variables.children[i].value.strip()} "
         else:
             out += f"{variables.children[i].value}, "
     return out[:-2]
@@ -49,7 +50,7 @@ def prettify_variables(variables):
 def prettify_function(function):
     vars = prettify_variables(function.children[2])
     bloc = prettify_bloc(function.children[3], "")
-    return f"{function.children[0].value} {function.children[1].value}({vars}) {{\n{bloc}\n}}"
+    return f"{function.children[0].value.strip()} {function.children[1].value}({vars}) {{\n{bloc}\n}}"
 
 
 def prettify_expr(expr):
@@ -65,7 +66,10 @@ def prettify_expr(expr):
 
 def prettify_cmd(cmd, indent):
     if cmd.data == "assignment":
-        return f"{cmd.children[0].value} {cmd.children[1].value} = {prettify_expr(cmd.children[2])};"
+        t = cmd.children[0].value.strip()
+        n = count_char(t, "*")
+        t = t.split(" ")[0] + (1 if n != 0 else 0)*" " + n*'*'
+        return f"{t} {cmd.children[1].value} = {prettify_expr(cmd.children[2])};"
     elif cmd.data in ["while", "if"]:
         return f"{cmd.data} ({prettify_expr(cmd.children[0])}) {{\n{prettify_bloc(cmd.children[1], indent)}\n{indent}}}"
     elif cmd.data == "ifelse":
@@ -86,7 +90,6 @@ def prettify_bloc(bloc, indent=""):
 
 
 def prettify(program):
-    print(var_list(program))
     return "\n".join([prettify_function(f) for f in program.children])
 
 
