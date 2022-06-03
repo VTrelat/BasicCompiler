@@ -1,3 +1,4 @@
+#! /usr/bin/env python3
 import sys
 import lark
 from utils import fun_list, var_list, count_char
