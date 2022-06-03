@@ -1,6 +1,6 @@
 import sys
 import lark
-from utils import *
+from utils import fun_list, var_list, count_char
 
 COUNT = iter(range(10000))
 op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div"}
@@ -37,7 +37,7 @@ ID : /[a-zA-Z][a-zA-Z0-9]*/
 
 
 # prettify parsed program
-def prettify_variables(variables):
+def prettify_variables(variables: lark.Tree) -> str:
     out = ""
     for i in range(len(variables.children)):
         if i % 2 == 0:
@@ -47,13 +47,13 @@ def prettify_variables(variables):
     return out[:-2]
 
 
-def prettify_function(function):
+def prettify_function(function: lark.Tree) -> str:
     vars = prettify_variables(function.children[2])
     bloc = prettify_bloc(function.children[3], "")
     return f"{function.children[0].value.strip()} {function.children[1].value}({vars}) {{\n{bloc}\n}}"
 
 
-def prettify_expr(expr):
+def prettify_expr(expr: lark.Tree) -> str:
     if expr.data in ["variable", "number"]:
         return expr.children[0].value
     elif expr.data == "binexpr":
@@ -64,7 +64,7 @@ def prettify_expr(expr):
         raise Exception("Unknown expr")
 
 
-def prettify_cmd(cmd, indent):
+def prettify_cmd(cmd: lark.Tree, indent: str) -> str:
     if cmd.data == "assignment":
         n = count_char(cmd.children[0], "*")
         t = cmd.children[0].value.replace('*', '').strip()
@@ -84,12 +84,12 @@ def prettify_cmd(cmd, indent):
         raise Exception("Unknown cmd")
 
 
-def prettify_bloc(bloc, indent=""):
+def prettify_bloc(bloc: lark.Tree, indent: str = "") -> str:
     indent += "    "
     return indent+f"\n{indent}".join([prettify_cmd(cmd, indent) for cmd in bloc.children])
 
 
-def prettify(program):
+def prettify(program: lark.ParseTree) -> str:
     return "\n".join([prettify_function(f) for f in program.children])
 
 
@@ -106,7 +106,7 @@ def var_list(ast):
     return s
 
 
-def compile_expr(expr):
+def compile_expr(expr: lark.Tree) -> str:
     if expr.data == "variable":
         return f"   mov rax, [{expr.children[0].value}]"
     if expr.data == "number":
@@ -127,7 +127,7 @@ def compile_expr(expr):
         raise Exception("Not implemented : "+expr.data)
 
 
-def compile_cmd(cmd):
+def compile_cmd(cmd: lark.Tree) -> str:
     if cmd.data == "assignment":
         lhs = cmd.children[0].value
         rhs = compile_expr(cmd.children[1])
@@ -155,18 +155,18 @@ def compile_cmd(cmd):
         raise Exception("Not implemented")
 
 
-def compile_bloc(bloc):
+def compile_bloc(bloc: lark.Tree) -> str:
     return "\n".join([compile_cmd(t) for t in bloc.children])
 
 
-def compile_var(ast):
+def compile_var(ast: lark.Tree) -> str:
     s = ""
     for i in range(len(ast.children)):
         s += f"   mov rbx, [rbp-0x10]\n   mov rdi, [rbx+{8*(i+1)}]\n   call _atoi\n   mov [{ast.children[i].value}], rax\n"
     return s
 
 
-def compile(program: str) -> str:
+def compile(program: lark.ParseTree) -> str:
     with open("template.asm") as f:
         template = f.read()
         var_decl = "\n".join([f"{x} : dq 0" for x in var_list(program)])
