@@ -133,8 +133,8 @@ def compile_expr(expr: lark.Tree, offsets: dict[str, int] = None) -> str:
         return compile_expr(expr.children[0], offsets)
     elif expr.data == "function":
         bloc = compile_bloc(expr.children[3], offsets)
-        varSize = sum(offsets.values())
         out = F_LEADER+expr.children[1].value.strip()
+        varSize = max(offsets.values())
         return (f"{out}:\n   push rbp\n   mov rbp, rsp\n   sub rsp, {varSize}\n"
                 f"   push rdi\n   push rsi\n"
                 f"   {bloc}\n\n")
@@ -175,7 +175,7 @@ def compile_cmd(cmd: lark.Tree, offsets: dict[str, int] = None) -> str:
     elif cmd.data == "COMMENT":
         return ""
     elif cmd.data == "return":
-        varSize = sum(offsets.values())
+        varSize = max(offsets.values())
         return (f"   pop rdi\n   pop rsi\n   add rsp, {varSize}\n"
                 f"   {compile_expr(cmd.children[0], offsets)}\n"
                 f"   pop rbp\n   ret\n")
