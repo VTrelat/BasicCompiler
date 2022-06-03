@@ -1,7 +1,18 @@
 #! /usr/bin/env python3
 import sys
 import lark
+import platform
 from utils import fun_list, var_list, count_char, var_offsets
+
+sys_name = platform.system()
+if sys_name == "Linux":
+    F_LEADER = ""
+    TEMPLATE = "linux_template.asm"
+elif sys_name == "Darwin":
+    F_LEADER = "_"
+    TEMPLATE = "darwin_template.asm"
+else:
+    raise Exception("Platform not supported")
 
 COUNT = iter(range(10000))
 op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div"}
@@ -114,8 +125,8 @@ def compile_expr(expr: lark.Tree, offsets: dict[str, int] = None) -> str:
         return compile_expr(expr.children[0], offsets)
     elif expr.data == "function":
         bloc = compile_bloc(expr.children[3], offsets)
-        out = "_"+expr.children[1].value.strip()
         varSize = sum(offsets.values())
+        out = F_LEADER+expr.children[1].value.strip()
         return (f"{out}:\n   push rbp\n   mov rbp, rsp\n   sub rsp, {varSize}\n"
                 f"   push rdi\n   push rsi\n"
                 f"   {bloc}\n\n")
@@ -131,7 +142,7 @@ def compile_cmd(cmd: lark.Tree, offsets: dict[str, int] = None) -> str:
         rhs = compile_expr(cmd.children[2], offsets)
         return f"{rhs}\n   mov [rbp-{offsets[lhs]}], rax"
     elif cmd.data == "printf":
-        return f"{compile_expr(cmd.children[0])}\n   mov rdi, fmt\n   mov rsi, rax\n   xor rax, rax\n   call _printf"
+        return f"{compile_expr(cmd.children[0])}\n   mov rdi, fmt\n   mov rsi, rax\n   xor rax, rax\n   call {F_LEADER}printf"
     elif cmd.data == "while":
         e = compile_expr(cmd.children[0], offsets)
         b = compile_bloc(cmd.children[1], offsets)
@@ -170,7 +181,7 @@ def compile_var(ast: lark.Tree) -> str:
 
 
 def compile(program: lark.ParseTree) -> str:
-    with open("template.asm") as f:
+    with open(TEMPLATE) as f:
         template = f.read()
         var_decl = "\n".join([f"{x} : dq 0" for x in var_list(program)])
         template = template.replace("VAR_DECL", var_decl)
