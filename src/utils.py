@@ -32,7 +32,7 @@ def var_list(function: lark.Tree) -> set[Var]:
     res.update({
         Var(c.children[0].value.strip(), c.children[1].value)
         for c in body.children
-        if c.data == "assignment"
+        if c.data == "initialization" or c.data == "declaration"
     })
     return res
 

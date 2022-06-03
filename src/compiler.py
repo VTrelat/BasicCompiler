@@ -30,8 +30,9 @@ expr : ID -> variable
      | NUMBER -> number
      | expr OP expr -> binexpr
      | "(" expr ")" -> parenexpr
-cmd : TYPE ID "=" expr ";" -> assignment
-    | function
+cmd : TYPE ID "=" expr ";" -> initialization
+    | TYPE ID ";" -> declaration
+    | ID "=" expr ";" -> assignment
     | "while" "(" expr ")" "{" bloc "}" -> while
     | "if" "(" expr ")" "{" bloc "}" -> if
     | "if" "(" expr ")" "{" bloc "}" "else" "{" bloc "}" -> ifelse
@@ -82,11 +83,18 @@ def prettify_expr(expr: lark.Tree) -> str:
 
 
 def prettify_cmd(cmd: lark.Tree, indent: str) -> str:
-    if cmd.data == "assignment":
+    if cmd.data == "initialization":
         n = count_char(cmd.children[0], "*")
         t = cmd.children[0].value.replace('*', '').strip()
         t = t.split(" ")[0] + (1 if n != 0 else 0)*" " + n*'*'
         return f"{t} {cmd.children[1].value} = {prettify_expr(cmd.children[2])};"
+    elif cmd.data == "declaration":
+        n = count_char(cmd.children[0], "*")
+        t = cmd.children[0].value.replace('*', '').strip()
+        t = t.split(" ")[0] + (1 if n != 0 else 0)*" " + n*'*'
+        return f"{t} {cmd.children[1].value};"
+    elif cmd.data == "assignment":
+        return f"{cmd.children[0].value} = {prettify_expr(cmd.children[1])};"
     elif cmd.data in ["while", "if"]:
         return f"{cmd.data} ({prettify_expr(cmd.children[0])}) {{\n{prettify_bloc(cmd.children[1], indent)}\n{indent}}}"
     elif cmd.data == "ifelse":
@@ -136,13 +144,19 @@ def compile_expr(expr: lark.Tree, offsets: dict[str, int] = None) -> str:
 
 
 def compile_cmd(cmd: lark.Tree, offsets: dict[str, int] = None) -> str:
-    if cmd.data == "assignment":
-        # now in assignment cmd.children[0] is the type
+    if cmd.data == "initialization":
+        # now in cmd.children[0] is the type
         lhs = cmd.children[1].value
         rhs = compile_expr(cmd.children[2], offsets)
         return f"{rhs}\n   mov [rbp-{offsets[lhs]}], rax"
+    elif cmd.data == "declaration":
+        return ""
+    elif cmd.data == "assignment":
+        lhs = cmd.children[0].value
+        rhs = compile_expr(cmd.children[1], offsets)
+        return f"{rhs}\n   mov [rbp-{offsets[lhs]}], rax"
     elif cmd.data == "printf":
-        return f"{compile_expr(cmd.children[0])}\n   mov rdi, fmt\n   mov rsi, rax\n   xor rax, rax\n   call {F_LEADER}printf"
+        return f"{compile_expr(cmd.children[0], offsets)}\n   mov rdi, fmt\n   mov rsi, rax\n   xor rax, rax\n   call {F_LEADER}printf"
     elif cmd.data == "while":
         e = compile_expr(cmd.children[0], offsets)
         b = compile_bloc(cmd.children[1], offsets)
