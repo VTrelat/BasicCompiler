@@ -1,28 +1,2 @@
-from collections import namedtuple
-from lark import tree, lexer
-
-# storage of function types and names
-Var = namedtuple("Var", ["type", "id"])
-
-
 def count_char(string, char):
     return sum(1 for c in string if c == char)
-
-
-def fun_list(prog: tree.Tree) -> set[Var]:
-    return {
-        Var(c.children[0].value, c.children[1].value)
-        for c in prog.children
-    }
-
-
-def var_list(function) -> set[Var]:
-    if isinstance(function, lexer.Token):
-        if function.type == "ID":
-            return {function.value}
-        else:
-            return set()
-    s = set()
-    for c in function.children:
-        s.update(var_list(c))
-    return s

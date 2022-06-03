@@ -1,4 +1,3 @@
-#! /usr/bin/env python3
 import sys
 import lark
 from utils import fun_list, var_list, count_char
@@ -95,6 +94,18 @@ def prettify(program: lark.ParseTree) -> str:
 
 
 # Build assembler code
+def var_list(ast):
+    if isinstance(ast, lark.Token):
+        if ast.type == "ID":
+            return {ast.value}
+        else:
+            return set()
+    s = set()
+    for c in ast.children:
+        s.update(var_list(c))
+    return s
+
+
 def compile_expr(expr: lark.Tree) -> str:
     if expr.data == "variable":
         return f"   mov rax, [{expr.children[0].value}]"
@@ -190,8 +201,6 @@ if len(sys.argv) > 1:
     with open(sys.argv[1], "r") as f:
         print("Parsing...")
         program = grammar.parse(str(f.read()))
-        print(program)
-        print(fun_list(program))
         save_to_file(sys.argv[1], prettify(program))
     print("Saving to file...")
     save_to_file(sys.argv[2], compile(program))
