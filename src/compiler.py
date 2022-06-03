@@ -115,9 +115,11 @@ def compile_expr(expr: lark.Tree, offsets: dict[str, int] = None) -> str:
     elif expr.data == "function":
         bloc = compile_bloc(expr.children[3], offsets)
         out = "_"+expr.children[1].value.strip()
-        return (f"{out}:\n   push rbp\n   mov rbp, rsp\n   push rdi\n   push rsi\n"
+        varSize = sum(offsets.values())
+        return (f"{out}:\n   push rbp\n   mov rbp, rsp\n   sub rsp, {varSize}\n"
+                f"   push rdi\n   push rsi\n"
                 f"   {bloc}\n\n")
-                # f"   pop rdi\n   pop rsi\n   add rsp, 16\n   pop rbp\n   ret\n\n")
+                # f"   pop rdi\n   pop rsi\n   add rsp, {varSize}\n   pop rbp\n   ret\n\n")
     else:
         raise Exception("Not implemented : "+expr.data)
 
@@ -148,8 +150,10 @@ def compile_cmd(cmd: lark.Tree, offsets: dict[str, int] = None) -> str:
     elif cmd.data == "COMMENT":
         return ""
     elif cmd.data == "return":
-        return (f"   pop rdi\n   pop rsi\n   add rsp, 16\n   pop rbp\n   ret\n\n"
-                f"   {compile_expr(cmd.children[0], offsets)}\n   ret\n")
+        varSize = sum(offsets.values())
+        return (f"   pop rdi\n   pop rsi\n   add rsp, {varSize}\n"
+                f"   {compile_expr(cmd.children[0], offsets)}\n"
+                f"   pop rbp\n   ret\n")
     else:
         raise Exception("Not implemented", cmd.data)
 
