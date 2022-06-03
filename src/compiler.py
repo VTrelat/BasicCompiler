@@ -5,10 +5,6 @@ from utils import fun_list, var_list, count_char
 
 COUNT = iter(range(10000))
 op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div"}
-types = {
-    "int": 8,
-    "char": 1,
-}
 
 # grammar
 grammar = lark.Lark("""
@@ -18,9 +14,7 @@ expr : ID -> variable
      | NUMBER -> number
      | expr OP expr -> binexpr
      | "(" expr ")" -> parenexpr
-cmd : TYPE ID "=" expr ";" -> initialization
-    | TYPE ID ";" -> declaration
-    | ID "=" expr ";" -> assignment
+cmd : TYPE ID "=" expr ";" -> assignment
     | function
     | "while" "(" expr ")" "{" bloc "}" -> while
     | "if" "(" expr ")" "{" bloc "}" -> if
