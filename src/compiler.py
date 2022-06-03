@@ -94,18 +94,6 @@ def prettify(program: lark.ParseTree) -> str:
 
 
 # Build assembler code
-def var_list(ast):
-    if isinstance(ast, lark.Token):
-        if ast.type == "ID":
-            return {ast.value}
-        else:
-            return set()
-    s = set()
-    for c in ast.children:
-        s.update(var_list(c))
-    return s
-
-
 def compile_expr(expr: lark.Tree) -> str:
     if expr.data == "variable":
         return f"   mov rax, [{expr.children[0].value}]"
