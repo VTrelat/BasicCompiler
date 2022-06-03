@@ -1,10 +1,15 @@
 #! /usr/bin/env python3
 import sys
 import lark
-from utils import fun_list, var_list, count_char
+from utils import fun_list, var_list, count_char, var_offsets
 
 COUNT = iter(range(10000))
 op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div"}
+types = {
+    "int": 8,
+    "char": 1,
+    "int *": 8
+}
 
 # grammar
 grammar = lark.Lark("""
@@ -95,57 +100,62 @@ def prettify(program: lark.ParseTree) -> str:
 
 
 # Build assembler code
-def compile_expr(expr: lark.Tree) -> str:
+def compile_expr(expr: lark.Tree, offsets: dict[str, int] = None) -> str:
     if expr.data == "variable":
-        return f"   mov rax, [{expr.children[0].value}]"
+        return f"mov rax, [rbp-{offsets[expr.children[0].value]}]"
     if expr.data == "number":
-        return f"   mov rax, {expr.children[0].value}"
+        return f"mov rax, {expr.children[0].value}"
     elif expr.data == "binexpr":
-        e1 = compile_expr(expr.children[0])
-        e2 = compile_expr(expr.children[2])
+        e1 = compile_expr(expr.children[0], offsets)
+        e2 = compile_expr(expr.children[2], offsets)
         op = expr.children[1].value
         return f"{e2}\n   push rax\n{e1}\n   pop rbx\n   {op2asm[op]} rax, rbx\n"
     elif expr.data == "parenexpr":
-        return compile_expr(expr.children[0])
+        return compile_expr(expr.children[0], offsets)
     elif expr.data == "function":
+        bloc = compile_bloc(expr.children[3], offsets)
         out = "_"+expr.children[1].value.strip()
         return (f"{out}:\n   push rbp\n   mov rbp, rsp\n   push rdi\n   push rsi\n"
-                f"\n   FUNCTION BODY HERE\n\n"
-                f"   pop rdi\n   pop rsi\n   add rsp, 16\n   pop rbp\n   ret\n\n")
+                f"   {bloc}\n\n")
+                # f"   pop rdi\n   pop rsi\n   add rsp, 16\n   pop rbp\n   ret\n\n")
     else:
         raise Exception("Not implemented : "+expr.data)
 
 
-def compile_cmd(cmd: lark.Tree) -> str:
+def compile_cmd(cmd: lark.Tree, offsets: dict[str, int] = None) -> str:
     if cmd.data == "assignment":
-        lhs = cmd.children[0].value
-        rhs = compile_expr(cmd.children[1])
-        return f"{rhs}\n   mov [{lhs}], rax"
+        # now in assignment cmd.children[0] is the type
+        lhs = cmd.children[1].value
+        rhs = compile_expr(cmd.children[2], offsets)
+        return f"{rhs}\n   mov [rbp-{offsets[lhs]}], rax"
     elif cmd.data == "printf":
         return f"{compile_expr(cmd.children[0])}\n   mov rdi, fmt\n   mov rsi, rax\n   xor rax, rax\n   call _printf"
     elif cmd.data == "while":
-        e = compile_expr(cmd.children[0])
-        b = compile_bloc(cmd.children[1])
+        e = compile_expr(cmd.children[0], offsets)
+        b = compile_bloc(cmd.children[1], offsets)
         index = next(COUNT)
         return f"{cmd.data}{index} :\n{e}\n   cmp rax, 0\n   jz end{cmd.data}{index}\n{b}\n   jmp {cmd.data}{index}\nend{cmd.data}{index} :\n"
     elif cmd.data == "if":
-        e = compile_expr(cmd.children[0])
-        b = compile_bloc(cmd.children[1])
+        e = compile_expr(cmd.children[0], offsets)
+        b = compile_bloc(cmd.children[1], offsets)
         return f"{cmd.data} :\n{e}\n   cmp rax, 0\n   jz end{cmd.data}\n{b}\nend{cmd.data} :\n"
     elif cmd.data == "ifelse":
-        e = compile_expr(cmd.children[0])
-        b1 = compile_bloc(cmd.children[1])
-        b2 = compile_bloc(cmd.children[2])
+        e = compile_expr(cmd.children[0], offsets)
+        b1 = compile_bloc(cmd.children[1], offsets)
+        b2 = compile_bloc(cmd.children[2], offsets)
         index = next(COUNT)
         return f"{cmd.data}{index} :\n{e}\n   cmp rax, 0\n   jz end{cmd.data}{index}\n{b1}\njmp end{cmd.data}{index}\n{b2}\nend{cmd.data}{index} :\n"
     elif cmd.data == "COMMENT":
         return ""
+    elif cmd.data == "return":
+        return (f"   pop rdi\n   pop rsi\n   add rsp, 16\n   pop rbp\n   ret\n\n"
+                f"   {compile_expr(cmd.children[0], offsets)}\n   ret\n")
     else:
-        raise Exception("Not implemented")
+        raise Exception("Not implemented", cmd.data)
 
 
-def compile_bloc(bloc: lark.Tree) -> str:
-    return "\n".join([compile_cmd(t) for t in bloc.children])
+def compile_bloc(bloc: lark.Tree, offsets: dict[str, int] = None) -> str:
+    return "\n".join([compile_cmd(t, offsets) for t in bloc.children])
 
 
 def compile_var(ast: lark.Tree) -> str:
@@ -162,11 +172,15 @@ def compile(program: lark.ParseTree) -> str:
         template = template.replace("VAR_DECL", var_decl)
 
         func_asm = ""
-        for child in program.children:
+        for function in program.children:
             # child.data : function symbol
             # child.children[0].value : function type
             # child.children[1].value : function name
-            func_asm += compile_expr(child)
+            vars = var_list(function)
+            print(vars)
+            offsets = var_offsets(vars, types)
+            print(offsets)
+            func_asm += compile_expr(function, offsets)
         template = template.replace("FUN_DECL", func_asm)
         # template = template.replace(
         #     "RETURN", compile_expr(program.children[2]))
@@ -192,6 +206,7 @@ if len(sys.argv) > 1:
         program = grammar.parse(str(f.read()))
         save_to_file(sys.argv[1], prettify(program))
     print("Saving to file...")
+    print(compile(program))
     save_to_file(sys.argv[2], compile(program))
     print(f"Saved to {sys.argv[2]}")
 else:
