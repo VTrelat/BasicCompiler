@@ -13,11 +13,13 @@ compiling the generated ASM code: `nasm -f elf64 [asmOutputFile] && gcc -no-pie 
 
 ## Functionality
 
-**DISCLAIMER**: There is no check before compiling the code. As long as an expression is valid, it will be compiled. We might implement a checker later, but for now, the programmer is responsible for making sensible code.
+**DISCLAIMER**: There is no check before compiling the code. As long as an expression is valid, it will be compiled. We might implement a checker later, but for now, the programmer is responsible for making sensible code. You could for instance dereference a variable, but the outcome would be undefined.
 
 * functions: You can write and call functions within the code. The function calls use 32bit convention (we put the variables on the stack and then call the function)
 
-* pointers: for now pointer arithmetics doesn't work (we are not detecting the size of what the pointer points to, but you can always do the maths yourself). However you can get dereference variables and follow pointers (just like in C)
-> TODO: pointer arithmetics
+* pointers: for now pointer arithmetics doesn't work (we are not detecting the size of what the pointer points to, but you can always do the maths yourself). However you can get references to variables and dereference pointers (just like in C)
+> TODO: pointer arithmetics.
 
-* typing: basic types are present (char, int) and should be taken into consideration in the generated ASM code.
+* typing: basic types are present (char, int) and should be taken into consideration in the generated ASM code. The following types are present:
+    * int: 64bit integer
+    * char: 8bit integer
