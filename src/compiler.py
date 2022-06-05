@@ -39,6 +39,12 @@ ASM_POINTER_SIZE = {
     4: "dword",
     8: "qword"
 }
+AX_REGISTERS = {
+    1: "al",
+    2: "ax",
+    4: "eax",
+    8: "rax"
+}
 functions = None
 
 # grammar
@@ -230,14 +236,20 @@ def compile_cmd(cmd: lark.Tree, env: Env) -> str:
         # now in cmd.children[0] is the type
         lhs = cmd.children[1].value
         rhs = compile_expr(cmd.children[2], env)
-        return f"{rhs}\n   mov [rbp{offsets[lhs]:+}], rax"
+        v = env.varLists[funID][lhs]
+        tsize = types[v.type]
+        cmd = "mov" if types[v.type] > 2 else "movzx"
+        return (f"{rhs}\n"
+                f"   mov {ASM_POINTER_SIZE[tsize]} [rbp{offsets[lhs]:+}], {AX_REGISTERS[tsize]}")
     elif cmd.data == "declaration":
         return ""
     elif cmd.data == "assignment":
         lhs = cmd.children[0].value
         rhs = compile_expr(cmd.children[1], env)
+        v = env.varLists[funID][lhs]
+        tsize = types[v.type]
         return (f"{rhs}\n"
-                f"   mov [rbp{offsets[lhs]:+}], rax")
+                f"   mov {ASM_POINTER_SIZE[tsize]} [rbp{offsets[lhs]:+}], {AX_REGISTERS[tsize]}")
     elif cmd.data == "passignment":
         return (f"{compile_expr(cmd.children[0], env)}\n"
                 f"   push rax\n"
