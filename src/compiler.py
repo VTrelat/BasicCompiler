@@ -19,7 +19,7 @@ else:
 
 @dataclass
 class Env:
-    count = range(10000)
+    count = iter(range(10000))
     funID: str
     varLists: dict[str, Var]
     functionList: dict[str, Fun]
@@ -290,9 +290,10 @@ def compile_cmd(cmd: lark.Tree, env: Env) -> str:
         index = next(env.count)
         return (f"{cmd.data}{index} :\n{e}\n"
                 f"   cmp rax, 0\n"
-                f"   jz end{cmd.data}{index}\n"
+                f"   jz alt{cmd.data}{index}\n"
                 f"{b1}\n"
                 f"   jmp end{cmd.data}{index}\n"
+                f"alt{cmd.data}{index} :\n"
                 f"{b2}\n"
                 f"end{cmd.data}{index} :\n")
     elif cmd.data == "COMMENT":
