@@ -254,7 +254,7 @@ def compile_cmd(cmd: lark.Tree, env: Env) -> str:
         return (f"{compile_expr(cmd.children[0], env)}\n"
                 f"   push rax\n"
                 f"{compile_expr(cmd.children[1], env)}\n"
-                f"mov rbx, rax\n"
+                f"   mov rbx, rax\n"
                 f"   pop rax\n"
                 f"   mov [rax], rbx")
     elif cmd.data == "printf":
