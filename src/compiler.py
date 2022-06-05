@@ -3,7 +3,8 @@ import sys
 import lark
 import platform
 import re
-from utils import fun_list, var_list, count_char, var_offsets
+from dataclasses import dataclass
+from utils import fun_list, var_list, count_char, var_offsets, Var, Fun
 
 sys_name = platform.system()
 if sys_name == "Linux":
@@ -15,6 +16,16 @@ elif sys_name == "Darwin":
 else:
     raise Exception("Platform not supported")
 
+
+@dataclass
+class Env:
+    count = range(10000)
+    funID: str
+    varLists: dict[str, Var]
+    functionList: dict[str, Fun]
+    offsets: dict[str, dict[str, int]]
+
+
 COUNT = iter(range(10000))
 op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div", "&": "lea"}
 types = {
@@ -22,6 +33,12 @@ types = {
     "char": 1,
     "int *": 8
 }
+POINTER_SIZE = {
+        1: "BYTE PTR",
+        2: "WORD PTR",
+        4: "DWORD PTR",
+        8: "QWORD PTR"
+        }
 functions = None
 
 # grammar
@@ -140,14 +157,18 @@ def prettify(program: lark.ParseTree) -> str:
 
 
 # Build assembler code
-def compile_expr(expr: lark.Tree, offsets: dict[str, int] = None) -> str:
+def compile_expr(expr: lark.Tree, env: dict[str, int] = None, varDict: dict[str, int] = None) -> str:
+    funID = env.funID
+    offsets = env.offsets[funID]
+    varList = env.varLists[funID]
     if expr.data == "variable":
-        return f"   mov rax, [rbp{offsets[expr.children[0].value]:+}]"
-    if expr.data == "number":
+        varID = expr.children[0].value
+        return f"   movzx rax, {POINTER_SIZE[types[varList[varID].type]]}[rbp{offsets[varID]:+}]"
+    elif expr.data == "number":
         return f"   mov rax, {expr.children[0].value}"
     elif expr.data == "binexpr":
-        e1 = compile_expr(expr.children[0], offsets)
-        e2 = compile_expr(expr.children[2], offsets)
+        e1 = compile_expr(expr.children[0], env)
+        e2 = compile_expr(expr.children[2], env)
         op = expr.children[1].value
         return f"{e2}\n   push rax\n{e1}\n   pop rbx\n   {op2asm[op]} rax, rbx\n"
     elif expr.data == "pexpr":
@@ -156,12 +177,12 @@ def compile_expr(expr: lark.Tree, offsets: dict[str, int] = None) -> str:
     elif expr.data == "follow_pointer":
         return "   mov rax, [rax]\n"
     elif expr.data == "deref":
-        return compile_expr(expr.children[0], offsets)
+        return compile_expr(expr.children[0], env)
     elif expr.data == "parenexpr":
-        return compile_expr(expr.children[0], offsets)
+        return compile_expr(expr.children[0], env)
     elif expr.data == "function":
         bloc = re.sub("\n[\n]+", '\n',
-                      compile_bloc(expr.children[3], offsets))
+                      compile_bloc(expr.children[3], env))
         print(bloc)
         out = F_LEADER+expr.children[1].value.strip()
         print(offsets, offsets.values())
@@ -173,49 +194,50 @@ def compile_expr(expr: lark.Tree, offsets: dict[str, int] = None) -> str:
                 f"   {bloc}\n\n")
                 # f"   pop rdi\n   pop rsi\n   add rsp, {varSize}\n   pop rbp\n   ret\n\n")
     elif expr.data == "fcall":
-        fid = F_LEADER+expr.children[0].value
-        args = '\n'.join(compile_expr(e, offsets) +
+        calleeID = F_LEADER+expr.children[0].value
+        args = '\n'.join(compile_expr(e, env) +
                          '\n   push rax' for e in expr.children[1:])
-        callee_offests = var_offsets(
-            var_list(functions[expr.children[0].value].tree), types)
+        callee_offests = env.offsets[expr.children[0].value]
         argsSize = max(callee_offests.values()) - 8
-        return f"{args}\n   call {fid}\n   add rsp, {argsSize}\n"
+        return f"{args}\n   call {calleeID}\n   add rsp, {argsSize}\n"
     else:
         raise Exception("Not implemented : "+expr.data)
 
 
-def compile_cmd(cmd: lark.Tree, offsets: dict[str, int] = None) -> str:
+def compile_cmd(cmd: lark.Tree, env: Env) -> str:
+    funID = env.funID
+    offsets = env.offsets[funID]
     if cmd.data == "initialization":
         # now in cmd.children[0] is the type
         lhs = cmd.children[1].value
-        rhs = compile_expr(cmd.children[2], offsets)
+        rhs = compile_expr(cmd.children[2], env)
         return f"{rhs}\n   mov [rbp{offsets[lhs]:+}], rax"
     elif cmd.data == "declaration":
         return ""
     elif cmd.data == "assignment":
         lhs = cmd.children[0].value
-        rhs = compile_expr(cmd.children[1], offsets)
+        rhs = compile_expr(cmd.children[1], env)
         return f"{rhs}\n   mov [rbp{offsets[lhs]:+}], rax"
     elif cmd.data == "passignment":
-        return (f"{compile_expr(cmd.children[0], offsets)}\n   push rax\n"
-                f"{compile_expr(cmd.children[1], offsets)}\n"
+        return (f"{compile_expr(cmd.children[0], env)}\n   push rax\n"
+                f"{compile_expr(cmd.children[1], env)}\n"
                 f"mov rbx, rax\n   pop rax\n   mov [rax], rbx")
     elif cmd.data == "printf":
-        return f"{compile_expr(cmd.children[0], offsets)}\n   mov rdi, fmt\n   mov rsi, rax\n   xor rax, rax\n   call {F_LEADER}printf"
+        return f"{compile_expr(cmd.children[0], env)}\n   mov rdi, fmt\n   mov rsi, rax\n   xor rax, rax\n   call {F_LEADER}printf"
     elif cmd.data == "while":
-        e = compile_expr(cmd.children[0], offsets)
-        b = compile_bloc(cmd.children[1], offsets)
-        index = next(COUNT)
+        e = compile_expr(cmd.children[0], env)
+        b = compile_bloc(cmd.children[1], env)
+        index = next(env.count)
         return f"{cmd.data}{index} :\n{e}\n   cmp rax, 0\n   jz end{cmd.data}{index}\n{b}\n   jmp {cmd.data}{index}\nend{cmd.data}{index} :\n"
     elif cmd.data == "if":
-        e = compile_expr(cmd.children[0], offsets)
-        b = compile_bloc(cmd.children[1], offsets)
+        e = compile_expr(cmd.children[0], env)
+        b = compile_bloc(cmd.children[1], env)
         return f"{cmd.data} :\n{e}\n   cmp rax, 0\n   jz end{cmd.data}\n{b}\nend{cmd.data} :\n"
     elif cmd.data == "ifelse":
-        e = compile_expr(cmd.children[0], offsets)
-        b1 = compile_bloc(cmd.children[1], offsets)
-        b2 = compile_bloc(cmd.children[2], offsets)
-        index = next(COUNT)
+        e = compile_expr(cmd.children[0], env)
+        b1 = compile_bloc(cmd.children[1], env)
+        b2 = compile_bloc(cmd.children[2], env)
+        index = next(env.count)
         return f"{cmd.data}{index} :\n{e}\n   cmp rax, 0\n   jz end{cmd.data}{index}\n{b1}\njmp end{cmd.data}{index}\n{b2}\nend{cmd.data}{index} :\n"
     elif cmd.data == "COMMENT":
         return ""
@@ -223,14 +245,14 @@ def compile_cmd(cmd: lark.Tree, offsets: dict[str, int] = None) -> str:
         noffsets = list(filter(lambda x: x < 0, offsets.values()))
         varSize = -min(noffsets) if len(noffsets) > 0 else 0
         return (f"   pop rdi\n   pop rsi\n   add rsp, {varSize}\n"
-                f"{compile_expr(cmd.children[0], offsets)}\n"
+                f"{compile_expr(cmd.children[0], env)}\n"
                 f"   pop rbp\n   ret\n")
     else:
         raise Exception("Not implemented", cmd.data)
 
 
-def compile_bloc(bloc: lark.Tree, offsets: dict[str, int] = None) -> str:
-    return "\n".join([compile_cmd(t, offsets) for t in bloc.children])
+def compile_bloc(bloc: lark.Tree, env: Env) -> str:
+    return "\n".join([compile_cmd(t, env) for t in bloc.children])
 
 
 def compile_var(ast: lark.Tree) -> str:
@@ -241,8 +263,10 @@ def compile_var(ast: lark.Tree) -> str:
 
 
 def compile(program: lark.ParseTree) -> str:
-    global functions
     functions = fun_list(program)
+    vars = {f.id: var_list(f.tree) for f in functions.values()}
+    offsets = {f.id: var_offsets(vars[f.id].values(), types) for f in functions.values()}
+    env = Env(funID=None, functionList=functions, varLists=vars, offsets=offsets)
     with open(TEMPLATE) as f:
         template = f.read()
         var_decl = "\n".join([f"{x} : dq 0" for x in var_list(program)])
@@ -253,11 +277,11 @@ def compile(program: lark.ParseTree) -> str:
             # child.data : function symbol
             # child.children[0].value : function type
             # child.children[1].value : function name
-            vars = var_list(function)
             # print(vars)
-            offsets = var_offsets(vars, types)
             # print(offsets)
-            func_asm += compile_expr(function, offsets)
+            env.funID = function.children[1].value
+            print(env)
+            func_asm += compile_expr(function, env)
         template = template.replace("FUN_DECL", func_asm)
         # template = template.replace(
         #     "RETURN", compile_expr(program.children[2]))
@@ -283,7 +307,7 @@ if len(sys.argv) > 1:
         program = grammar.parse(str(f.read()))
         save_to_file(sys.argv[1], prettify(program))
     print("Saving to file...")
-    # print(compile(program))
+    print(compile(program))
     save_to_file(sys.argv[2], compile(program))
     print(f"Saved to {sys.argv[2]}")
 else:

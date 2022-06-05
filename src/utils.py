@@ -19,22 +19,23 @@ def fun_list(prog: lark.Tree) -> dict[str, Fun]:
     }
 
 
-def var_list(function: lark.Tree) -> list[Var]:
+def var_list(function: lark.Tree) -> dict[str, Var]:
     if not isinstance(function, lark.Tree):
-        return []
+        return {}
     if function.data != "function":
-        return []
+        return {}
     # function.children[3] is the function bloc
     body = function.children[3]
     vars = function.children[2].children  # variables in function declaration
-    res = [Var(t.value.strip(), i.value.strip(), True)
-           for t, i in zip(vars[::2], vars[1::2])]
+    res = {i.value.strip(): Var(t.value.strip(), i.value.strip(), True)
+           for t, i in zip(vars[::2], vars[1::2])}
     # adding the variables assigned in the bloc
-    res += [
+    res.update({
+        c.children[1].value.strip():
         Var(c.children[0].value.strip(), c.children[1].value, False)
         for c in body.children
         if c.data == "initialization" or c.data == "declaration"
-    ]
+    })
     return res
 
 
