@@ -34,11 +34,11 @@ types = {
     "int *": 8
 }
 ASM_POINTER_SIZE = {
-        1: "byte",
-        2: "word",
-        4: "dword",
-        8: "qword"
-        }
+    1: "byte",
+    2: "word",
+    4: "dword",
+    8: "qword"
+}
 functions = None
 
 # grammar
@@ -94,14 +94,19 @@ def prettify_variables(variables: lark.Tree) -> str:
 def prettify_function(function: lark.Tree) -> str:
     vars = prettify_variables(function.children[2])
     bloc = prettify_bloc(function.children[3], "")
-    return f"{function.children[0].value.strip()} {function.children[1].value}({vars}) {{\n{bloc}\n}}"
+    type = function.children[0].value.strip()
+    function_id = function.children[1].value
+    return f"{type} {function_id}({vars}) {{\n{bloc}\n}}"
 
 
 def prettify_expr(expr: lark.Tree) -> str:
     if expr.data in ["variable", "number"]:
         return expr.children[0].value
     elif expr.data == "binexpr":
-        return f"{prettify_expr(expr.children[0])} {expr.children[1].value} {prettify_expr(expr.children[2])}"
+        lhs = prettify_expr(expr.children[0])
+        op = expr.children[1].value
+        rhs = prettify_expr(expr.children[2])
+        return f"{lhs} {op} {rhs}"
     elif expr.data == "pexpr":
         return f"{expr.children[0].value}{expr.children[1].value}"
     elif expr.data == "parenexpr":
@@ -122,7 +127,8 @@ def prettify_cmd(cmd: lark.Tree, indent: str) -> str:
         n = count_char(cmd.children[0], "*")
         t = cmd.children[0].value.replace('*', '').strip()
         t = t.split(" ")[0] + (1 if n != 0 else 0)*" " + n*'*'
-        return f"{t} {cmd.children[1].value} = {prettify_expr(cmd.children[2])};"
+        expr = prettify_expr(cmd.children[2])
+        return f"{t} {cmd.children[1].value} = {expr};"
     elif cmd.data == "declaration":
         n = count_char(cmd.children[0], "*")
         t = cmd.children[0].value.replace('*', '').strip()
@@ -134,9 +140,16 @@ def prettify_cmd(cmd: lark.Tree, indent: str) -> str:
         deref = prettify_expr(cmd.children[0])
         return (f"{deref} = {prettify_expr(cmd.children[1])};")
     elif cmd.data in ["while", "if"]:
-        return f"{cmd.data} ({prettify_expr(cmd.children[0])}) {{\n{prettify_bloc(cmd.children[1], indent)}\n{indent}}}"
+        return (f"{cmd.data} ({prettify_expr(cmd.children[0])}) {{\n"
+                f"{prettify_bloc(cmd.children[1], indent)}\n"
+                f"{indent}}}")
     elif cmd.data == "ifelse":
-        return f"if ({prettify_expr(cmd.children[0])}) {{\n{prettify_bloc(cmd.children[1], indent)}\n{indent}}}\n{indent}else {{\n{prettify_bloc(cmd.children[2], indent)}\n{indent}}}"
+        return (f"if ({prettify_expr(cmd.children[0])}) {{\n"
+                f"{prettify_bloc(cmd.children[1], indent)}\n"
+                f"{indent}}}\n"
+                f"{indent}else {{\n"
+                f"{prettify_bloc(cmd.children[2], indent)}\n"
+                f"{indent}}}")
     elif cmd.data == "printf":
         return f"printf({prettify_expr(cmd.children[0])});"
     elif cmd.data == "COMMENT":
@@ -163,9 +176,8 @@ def compile_expr(expr: lark.Tree, env: dict[str, int] = None, varDict: dict[str,
     varList = env.varLists[funID]
     if expr.data == "variable":
         varID = expr.children[0].value
-        if types[varList[varID].type] > 2:
-            return f"   mov rax, {ASM_POINTER_SIZE[types[varList[varID].type]]} [rbp{offsets[varID]:+}]"
-        return f"   movzx rax, {ASM_POINTER_SIZE[types[varList[varID].type]]} [rbp{offsets[varID]:+}]"
+        cmd = "mov" if types[varList[varID].type] > 2 else "movzx"
+        return f"   {cmd} rax, {ASM_POINTER_SIZE[types[varList[varID].type]]} [rbp{offsets[varID]:+}]"
     elif expr.data == "number":
         return f"   mov rax, {expr.children[0].value}"
     elif expr.data == "binexpr":
@@ -191,17 +203,22 @@ def compile_expr(expr: lark.Tree, env: dict[str, int] = None, varDict: dict[str,
         # size of the variables defined in the funciton, and not the arguments
         noffsets = list(filter(lambda x: x < 0, offsets.values()))
         varSize = -min(noffsets) if len(noffsets) > 0 else 0
-        return (f"{out}:\n   push rbp\n   mov rbp, rsp\n   sub rsp, {varSize}\n"
-                f"   push rdi\n   push rsi\n"
+        return (f"{out}:\n"
+                f"   push rbp\n"
+                f"   mov rbp, rsp\n"
+                f"   sub rsp, {varSize}\n"
+                f"   push rdi\n"
+                f"   push rsi\n"
                 f"   {bloc}\n\n")
-                # f"   pop rdi\n   pop rsi\n   add rsp, {varSize}\n   pop rbp\n   ret\n\n")
     elif expr.data == "fcall":
         calleeID = F_LEADER+expr.children[0].value
         args = '\n'.join(compile_expr(e, env) +
                          '\n   push rax' for e in expr.children[1:])
         callee_offests = env.offsets[expr.children[0].value]
         argsSize = max(callee_offests.values()) - 8
-        return f"{args}\n   call {calleeID}\n   add rsp, {argsSize}\n"
+        return (f"{args}\n"
+                f"   call {calleeID}\n"
+                f"   add rsp, {argsSize}\n")
     else:
         raise Exception("Not implemented : "+expr.data)
 
@@ -219,28 +236,53 @@ def compile_cmd(cmd: lark.Tree, env: Env) -> str:
     elif cmd.data == "assignment":
         lhs = cmd.children[0].value
         rhs = compile_expr(cmd.children[1], env)
-        return f"{rhs}\n   mov [rbp{offsets[lhs]:+}], rax"
+        return (f"{rhs}\n"
+                f"   mov [rbp{offsets[lhs]:+}], rax")
     elif cmd.data == "passignment":
-        return (f"{compile_expr(cmd.children[0], env)}\n   push rax\n"
+        return (f"{compile_expr(cmd.children[0], env)}\n"
+                f"   push rax\n"
                 f"{compile_expr(cmd.children[1], env)}\n"
-                f"mov rbx, rax\n   pop rax\n   mov [rax], rbx")
+                f"mov rbx, rax\n"
+                f"   pop rax\n"
+                f"   mov [rax], rbx")
     elif cmd.data == "printf":
-        return f"{compile_expr(cmd.children[0], env)}\n   mov rdi, fmt\n   mov rsi, rax\n   xor rax, rax\n   call {F_LEADER}printf"
+        return (f"{compile_expr(cmd.children[0], env)}\n"
+                f"   mov rdi, fmt\n"
+                f"   mov rsi, rax\n"
+                f"   xor rax, rax\n"
+                f"   call {F_LEADER}printf")
     elif cmd.data == "while":
         e = compile_expr(cmd.children[0], env)
         b = compile_bloc(cmd.children[1], env)
         index = next(env.count)
-        return f"{cmd.data}{index} :\n{e}\n   cmp rax, 0\n   jz end{cmd.data}{index}\n{b}\n   jmp {cmd.data}{index}\nend{cmd.data}{index} :\n"
+        return (f"{cmd.data}{index} :\n"
+                f"{e}\n"
+                f"   cmp rax, 0\n"
+                f"   jz end{cmd.data}{index}\n"
+                f"{b}\n"
+                f"   jmp {cmd.data}{index}\n"
+                f"end{cmd.data}{index} :\n")
     elif cmd.data == "if":
         e = compile_expr(cmd.children[0], env)
         b = compile_bloc(cmd.children[1], env)
-        return f"{cmd.data} :\n{e}\n   cmp rax, 0\n   jz end{cmd.data}\n{b}\nend{cmd.data} :\n"
+        return (f"{cmd.data} :\n"
+                f"{e}\n"
+                f"   cmp rax, 0\n"
+                f"   jz end{cmd.data}\n"
+                f"{b}\n"
+                f"end{cmd.data} :\n")
     elif cmd.data == "ifelse":
         e = compile_expr(cmd.children[0], env)
         b1 = compile_bloc(cmd.children[1], env)
         b2 = compile_bloc(cmd.children[2], env)
         index = next(env.count)
-        return f"{cmd.data}{index} :\n{e}\n   cmp rax, 0\n   jz end{cmd.data}{index}\n{b1}\njmp end{cmd.data}{index}\n{b2}\nend{cmd.data}{index} :\n"
+        return (f"{cmd.data}{index} :\n{e}\n"
+                f"   cmp rax, 0\n"
+                f"   jz end{cmd.data}{index}\n"
+                f"{b1}\n"
+                f"   jmp end{cmd.data}{index}\n"
+                f"{b2}\n"
+                f"end{cmd.data}{index} :\n")
     elif cmd.data == "COMMENT":
         return ""
     elif cmd.data == "return":
@@ -260,15 +302,20 @@ def compile_bloc(bloc: lark.Tree, env: Env) -> str:
 def compile_var(ast: lark.Tree) -> str:
     s = ""
     for i in range(len(ast.children)):
-        s += f"   mov rbx, [rbp-0x10]\n   mov rdi, [rbx+{8*(i+1)}]\n   call _atoi\n   mov [{ast.children[i].value}], rax\n"
+        s += (f"   mov rbx, [rbp-0x10]\n"
+              f"   mov rdi, [rbx+{8*(i+1)}]\n"
+              f"   call _atoi\n"
+              f"   mov [{ast.children[i].value}], rax\n")
     return s
 
 
 def compile(program: lark.ParseTree) -> str:
     functions = fun_list(program)
     vars = {f.id: var_list(f.tree) for f in functions.values()}
-    offsets = {f.id: var_offsets(vars[f.id].values(), types) for f in functions.values()}
-    env = Env(funID=None, functionList=functions, varLists=vars, offsets=offsets)
+    offsets = {f.id: var_offsets(vars[f.id].values(), types)
+               for f in functions.values()}
+    env = Env(funID=None, functionList=functions,
+              varLists=vars, offsets=offsets)
     with open(TEMPLATE) as f:
         template = f.read()
         var_decl = "\n".join([f"{x} : dq 0" for x in var_list(program)])
