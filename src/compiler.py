@@ -2,6 +2,7 @@
 import sys
 import lark
 import platform
+import re
 from utils import fun_list, var_list, count_char, var_offsets
 
 sys_name = platform.system()
@@ -121,9 +122,9 @@ def prettify(program: lark.ParseTree) -> str:
 # Build assembler code
 def compile_expr(expr: lark.Tree, offsets: dict[str, int] = None) -> str:
     if expr.data == "variable":
-        return f"mov rax, [rbp-{offsets[expr.children[0].value]}]"
+        return f"   mov rax, [rbp-{offsets[expr.children[0].value]}]"
     if expr.data == "number":
-        return f"mov rax, {expr.children[0].value}"
+        return f"   mov rax, {expr.children[0].value}"
     elif expr.data == "binexpr":
         e1 = compile_expr(expr.children[0], offsets)
         e2 = compile_expr(expr.children[2], offsets)
@@ -132,13 +133,15 @@ def compile_expr(expr: lark.Tree, offsets: dict[str, int] = None) -> str:
     elif expr.data == "parenexpr":
         return compile_expr(expr.children[0], offsets)
     elif expr.data == "function":
-        bloc = compile_bloc(expr.children[3], offsets)
+        bloc = re.sub("\n[\n]+", '\n',
+                      compile_bloc(expr.children[3], offsets))
+        print(bloc)
         out = F_LEADER+expr.children[1].value.strip()
         varSize = max(offsets.values())
         return (f"{out}:\n   push rbp\n   mov rbp, rsp\n   sub rsp, {varSize}\n"
                 f"   push rdi\n   push rsi\n"
-                f"   {bloc}\n\n")
-                # f"   pop rdi\n   pop rsi\n   add rsp, {varSize}\n   pop rbp\n   ret\n\n")
+                f"{bloc}\n\n")
+        # f"   pop rdi\n   pop rsi\n   add rsp, {varSize}\n   pop rbp\n   ret\n\n")
     else:
         raise Exception("Not implemented : "+expr.data)
 
@@ -177,7 +180,7 @@ def compile_cmd(cmd: lark.Tree, offsets: dict[str, int] = None) -> str:
     elif cmd.data == "return":
         varSize = max(offsets.values())
         return (f"   pop rdi\n   pop rsi\n   add rsp, {varSize}\n"
-                f"   {compile_expr(cmd.children[0], offsets)}\n"
+                f"{compile_expr(cmd.children[0], offsets)}\n"
                 f"   pop rbp\n   ret\n")
     else:
         raise Exception("Not implemented", cmd.data)
@@ -206,9 +209,9 @@ def compile(program: lark.ParseTree) -> str:
             # child.children[0].value : function type
             # child.children[1].value : function name
             vars = var_list(function)
-            print(vars)
+            # print(vars)
             offsets = var_offsets(vars, types)
-            print(offsets)
+            # print(offsets)
             func_asm += compile_expr(function, offsets)
         template = template.replace("FUN_DECL", func_asm)
         # template = template.replace(
@@ -235,7 +238,7 @@ if len(sys.argv) > 1:
         program = grammar.parse(str(f.read()))
         save_to_file(sys.argv[1], prettify(program))
     print("Saving to file...")
-    print(compile(program))
+    # print(compile(program))
     save_to_file(sys.argv[2], compile(program))
     print(f"Saved to {sys.argv[2]}")
 else:
