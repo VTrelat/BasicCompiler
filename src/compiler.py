@@ -15,7 +15,7 @@ else:
     raise Exception("Platform not supported")
 
 COUNT = iter(range(10000))
-op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div"}
+op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div", "&": "lea"}
 types = {
     "int": 8,
     "char": 1,
@@ -31,10 +31,15 @@ expr : ID -> variable
      | NUMBER -> number
      | expr OP expr -> binexpr
      | "(" expr ")" -> parenexpr
+     | P_OP ID -> pexpr
+     | deref -> deref
      | ID "(" expr ("," expr)* ")" -> fcall
+deref : "*" deref -> follow_pointer
+      | ID -> variable
 cmd : TYPE ID "=" expr ";" -> initialization
     | TYPE ID ";" -> declaration
     | ID "=" expr ";" -> assignment
+    | deref "=" expr ";" -> passignment
     | "while" "(" expr ")" "{" bloc "}" -> while
     | "if" "(" expr ")" "{" bloc "}" -> if
     | "if" "(" expr ")" "{" bloc "}" "else" "{" bloc "}" -> ifelse
@@ -49,6 +54,7 @@ COMMENT : "(*" /(.|\\n|\\r)+/ "*)" |  "//" /(.)+/ NEWLINE
 program : function+
 NUMBER : /\d+/
 OP : "+" | "-" | "*" | "/" | "^" | "==" | "!=" | "<" | ">"
+P_OP : "&"
 ID : /[a-zA-Z][a-zA-Z0-9]*/
 %ignore COMMENT
 %import common.WS
@@ -78,8 +84,14 @@ def prettify_expr(expr: lark.Tree) -> str:
         return expr.children[0].value
     elif expr.data == "binexpr":
         return f"{prettify_expr(expr.children[0])} {expr.children[1].value} {prettify_expr(expr.children[2])}"
+    elif expr.data == "pexpr":
+        return f"{expr.children[0].value}{expr.children[1].value}"
     elif expr.data == "parenexpr":
         return f"({prettify_expr(expr.children[1])})"
+    elif expr.data == "follow_pointer":
+        return f"*{prettify_expr(expr.children[0])}"
+    elif expr.data == "deref":
+        return prettify_expr(expr.children[0])
     elif expr.data == "fcall":
         args = ','.join([prettify_expr(e) for e in expr.children[1:]])
         return f"{expr.children[0].value}({args})"
@@ -100,6 +112,9 @@ def prettify_cmd(cmd: lark.Tree, indent: str) -> str:
         return f"{t} {cmd.children[1].value};"
     elif cmd.data == "assignment":
         return f"{cmd.children[0].value} = {prettify_expr(cmd.children[1])};"
+    elif cmd.data == "passignment":
+        deref = prettify_expr(cmd.children[0])
+        return (f"{deref} = {prettify_expr(cmd.children[1])};")
     elif cmd.data in ["while", "if"]:
         return f"{cmd.data} ({prettify_expr(cmd.children[0])}) {{\n{prettify_bloc(cmd.children[1], indent)}\n{indent}}}"
     elif cmd.data == "ifelse":
@@ -134,6 +149,13 @@ def compile_expr(expr: lark.Tree, offsets: dict[str, int] = None) -> str:
         e2 = compile_expr(expr.children[2], offsets)
         op = expr.children[1].value
         return f"{e2}\n   push rax\n{e1}\n   pop rbx\n   {op2asm[op]} rax, rbx\n"
+    elif expr.data == "pexpr":
+        op = expr.children[0].value
+        return f"   {op2asm[op]} rax, [rbp{offsets[expr.children[1].value]:+}]\n"
+    elif expr.data == "follow_pointer":
+        return "   mov rax, [rax]\n"
+    elif expr.data == "deref":
+        return compile_expr(expr.children[0], offsets)
     elif expr.data == "parenexpr":
         return compile_expr(expr.children[0], offsets)
     elif expr.data == "function":
@@ -171,6 +193,10 @@ def compile_cmd(cmd: lark.Tree, offsets: dict[str, int] = None) -> str:
         lhs = cmd.children[0].value
         rhs = compile_expr(cmd.children[1], offsets)
         return f"{rhs}\n   mov [rbp{offsets[lhs]:+}], rax"
+    elif cmd.data == "passignment":
+        return (f"{compile_expr(cmd.children[0], offsets)}\n   push rax\n"
+                f"{compile_expr(cmd.children[1], offsets)}\n"
+                f"mov rbx, rax\n   pop rax\n   mov [rax], rbx")
     elif cmd.data == "printf":
         return f"{compile_expr(cmd.children[0], offsets)}\n   mov rdi, fmt\n   mov rsi, rax\n   xor rax, rax\n   call {F_LEADER}printf"
     elif cmd.data == "while":
