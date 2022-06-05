@@ -51,3 +51,7 @@ def var_offsets(vars: list[Var], types: dict[str, int]) -> dict[str, int]:
             offset -= types[v.type]
             res[v.id] = offset
     return res
+
+
+def is_pointer(type: str) -> bool:
+    return '*' in type
