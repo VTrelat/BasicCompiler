@@ -33,11 +33,11 @@ types = {
     "char": 1,
     "int *": 8
 }
-POINTER_SIZE = {
-        1: "BYTE PTR",
-        2: "WORD PTR",
-        4: "DWORD PTR",
-        8: "QWORD PTR"
+ASM_POINTER_SIZE = {
+        1: "byte",
+        2: "word",
+        4: "dword",
+        8: "qword"
         }
 functions = None
 
@@ -163,7 +163,9 @@ def compile_expr(expr: lark.Tree, env: dict[str, int] = None, varDict: dict[str,
     varList = env.varLists[funID]
     if expr.data == "variable":
         varID = expr.children[0].value
-        return f"   movzx rax, {POINTER_SIZE[types[varList[varID].type]]}[rbp{offsets[varID]:+}]"
+        if types[varList[varID].type] > 2:
+            return f"   mov rax, {ASM_POINTER_SIZE[types[varList[varID].type]]} [rbp{offsets[varID]:+}]"
+        return f"   movzx rax, {ASM_POINTER_SIZE[types[varList[varID].type]]} [rbp{offsets[varID]:+}]"
     elif expr.data == "number":
         return f"   mov rax, {expr.children[0].value}"
     elif expr.data == "binexpr":
