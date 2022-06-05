@@ -21,6 +21,7 @@ types = {
     "char": 1,
     "int *": 8
 }
+functions = None
 
 # grammar
 grammar = lark.Lark("""
@@ -30,6 +31,7 @@ expr : ID -> variable
      | NUMBER -> number
      | expr OP expr -> binexpr
      | "(" expr ")" -> parenexpr
+     | ID "(" expr ("," expr)* ")" -> fcall
 cmd : TYPE ID "=" expr ";" -> initialization
     | TYPE ID ";" -> declaration
     | ID "=" expr ";" -> assignment
@@ -78,8 +80,11 @@ def prettify_expr(expr: lark.Tree) -> str:
         return f"{prettify_expr(expr.children[0])} {expr.children[1].value} {prettify_expr(expr.children[2])}"
     elif expr.data == "parenexpr":
         return f"({prettify_expr(expr.children[1])})"
+    elif expr.data == "fcall":
+        args = ','.join([prettify_expr(e) for e in expr.children[1:]])
+        return f"{expr.children[0].value}({args})"
     else:
-        raise Exception("Unknown expr")
+        raise Exception("Unknown expr", expr.data)
 
 
 def prettify_cmd(cmd: lark.Tree, indent: str) -> str:
@@ -106,7 +111,7 @@ def prettify_cmd(cmd: lark.Tree, indent: str) -> str:
     elif cmd.data == "return":
         return f"giveMeBack {prettify_expr(cmd.children[0])};"
     else:
-        raise Exception("Unknown cmd")
+        raise Exception("Unknown cmd", cmd.data)
 
 
 def prettify_bloc(bloc: lark.Tree, indent: str = "") -> str:
@@ -121,9 +126,9 @@ def prettify(program: lark.ParseTree) -> str:
 # Build assembler code
 def compile_expr(expr: lark.Tree, offsets: dict[str, int] = None) -> str:
     if expr.data == "variable":
-        return f"mov rax, [rbp-{offsets[expr.children[0].value]}]"
+        return f"   mov rax, [rbp{offsets[expr.children[0].value]:+}]"
     if expr.data == "number":
-        return f"mov rax, {expr.children[0].value}"
+        return f"   mov rax, {expr.children[0].value}"
     elif expr.data == "binexpr":
         e1 = compile_expr(expr.children[0], offsets)
         e2 = compile_expr(expr.children[2], offsets)
@@ -134,11 +139,22 @@ def compile_expr(expr: lark.Tree, offsets: dict[str, int] = None) -> str:
     elif expr.data == "function":
         bloc = compile_bloc(expr.children[3], offsets)
         out = F_LEADER+expr.children[1].value.strip()
-        varSize = max(offsets.values())
+        print(offsets, offsets.values())
+        # size of the variables defined in the funciton, and not the arguments
+        noffsets = list(filter(lambda x: x < 0, offsets.values()))
+        varSize = -min(noffsets) if len(noffsets) > 0 else 0
         return (f"{out}:\n   push rbp\n   mov rbp, rsp\n   sub rsp, {varSize}\n"
                 f"   push rdi\n   push rsi\n"
                 f"   {bloc}\n\n")
                 # f"   pop rdi\n   pop rsi\n   add rsp, {varSize}\n   pop rbp\n   ret\n\n")
+    elif expr.data == "fcall":
+        fid = F_LEADER+expr.children[0].value
+        args = '\n'.join(compile_expr(e, offsets) +
+                         '\n   push rax' for e in expr.children[1:])
+        callee_offests = var_offsets(
+            var_list(functions[expr.children[0].value].tree), types)
+        argsSize = max(callee_offests.values()) - 8
+        return f"{args}\n   call {fid}\n   add rsp, {argsSize}\n"
     else:
         raise Exception("Not implemented : "+expr.data)
 
@@ -148,13 +164,13 @@ def compile_cmd(cmd: lark.Tree, offsets: dict[str, int] = None) -> str:
         # now in cmd.children[0] is the type
         lhs = cmd.children[1].value
         rhs = compile_expr(cmd.children[2], offsets)
-        return f"{rhs}\n   mov [rbp-{offsets[lhs]}], rax"
+        return f"{rhs}\n   mov [rbp{offsets[lhs]:+}], rax"
     elif cmd.data == "declaration":
         return ""
     elif cmd.data == "assignment":
         lhs = cmd.children[0].value
         rhs = compile_expr(cmd.children[1], offsets)
-        return f"{rhs}\n   mov [rbp-{offsets[lhs]}], rax"
+        return f"{rhs}\n   mov [rbp{offsets[lhs]:+}], rax"
     elif cmd.data == "printf":
         return f"{compile_expr(cmd.children[0], offsets)}\n   mov rdi, fmt\n   mov rsi, rax\n   xor rax, rax\n   call {F_LEADER}printf"
     elif cmd.data == "while":
@@ -175,7 +191,8 @@ def compile_cmd(cmd: lark.Tree, offsets: dict[str, int] = None) -> str:
     elif cmd.data == "COMMENT":
         return ""
     elif cmd.data == "return":
-        varSize = max(offsets.values())
+        noffsets = list(filter(lambda x: x < 0, offsets.values()))
+        varSize = -min(noffsets) if len(noffsets) > 0 else 0
         return (f"   pop rdi\n   pop rsi\n   add rsp, {varSize}\n"
                 f"   {compile_expr(cmd.children[0], offsets)}\n"
                 f"   pop rbp\n   ret\n")
@@ -195,6 +212,8 @@ def compile_var(ast: lark.Tree) -> str:
 
 
 def compile(program: lark.ParseTree) -> str:
+    global functions
+    functions = fun_list(program)
     with open(TEMPLATE) as f:
         template = f.read()
         var_decl = "\n".join([f"{x} : dq 0" for x in var_list(program)])
