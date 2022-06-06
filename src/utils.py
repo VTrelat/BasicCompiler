@@ -14,7 +14,9 @@ def count_char(string, char):
 def fun_list(prog: lark.Tree) -> dict[str, Fun]:
     return {
         # c.children[0].value == c.children[0]
-        c.children[1].value: Fun(c.children[0].value, c.children[1].value, c)
+        c.children[1].value.strip(): Fun(c.children[0].value.strip(),
+                                         c.children[1].value.strip(),
+                                         c)
         for c in prog.children
     }
 
