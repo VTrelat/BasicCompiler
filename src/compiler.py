@@ -24,9 +24,11 @@ class Env:
     varLists: dict[str, Var]
     functionList: dict[str, Fun]
     offsets: dict[str, dict[str, int]]
+    pdepth: int = 0
+    curVar: str = ""
 
 
-ASM_BINOP = {"+": "add", "-": "sub", "*": "imul", "/": "idiv", "&": "lea"}
+ASM_BINOP = {"+": "add", "-": "sub", "*": "imul", "/": "idiv"}
 ASM_COMPARATOR = {
     "==": "sete",
     "!=": "setne",
@@ -38,8 +40,7 @@ ASM_COMPARATOR = {
 ASM_MONOP = {"&": "lea", "-": "neg"}
 TYPES = {
     "int": 8,
-    "char": 1,
-    "int *": 8
+    "char": 1
 }
 ASM_POINTER_SIZE = {
     1: "byte",
@@ -203,8 +204,19 @@ def compile_expr(expr: lark.Tree, env: dict[str, int] = None, varDict: dict[str,
     varList = env.varLists[funID]
     if expr.data == "variable":
         varID = expr.children[0].value
-        cmd = "mov" if TYPES[varList[varID].type] > 2 else "movsx"
-        return f"   {cmd} rax, {ASM_POINTER_SIZE[TYPES[varList[varID].type]]} [rbp{offsets[varID]:+}]"
+        if varList[varID].pdepth > env.pdepth:
+            # pointer
+            cmd = "mov"
+            size = 8
+        elif TYPES[varList[varID].type] == 8:
+            # type of size 64bit
+            cmd = "mov"
+            size = 8
+        else:
+            cmd = "movsx"
+            size = TYPES[varList[varID].type]
+        env.curVar = varID
+        return f"   {cmd} rax, {ASM_POINTER_SIZE[size]} [rbp{offsets[varID]:+}]"
     elif expr.data == "number":
         return f"   mov rax, {expr.children[0].value}"
     elif expr.data == "binexpr":
@@ -229,10 +241,15 @@ def compile_expr(expr: lark.Tree, env: dict[str, int] = None, varDict: dict[str,
                 f"   {op} al\n")
     elif expr.data == "pexpr":
         op = expr.children[0].value
-        return f"   {ASM_BINOP[op]} rax, [rbp{offsets[expr.children[1].value]:+}]\n"
+        return f"   {ASM_MONOP[op]} rax, [rbp{offsets[expr.children[1].value]:+}]\n"
     elif expr.data == "follow_pointer":
-        return "   mov rax, [rax]\n"
+        prev = compile_expr(expr.children[0], env)
+        env.pdepth += 1
+        size = 8 if env.pdepth == varList[env.curVar].pdepth else TYPES[varList[env.curVar].type]
+        return f"{prev}\n   mov rax, [rax]\n"
     elif expr.data == "deref":
+        env.pdepth = 0
+        env.curVar = ""
         return compile_expr(expr.children[0], env)
     elif expr.data == "parenexpr":
         return compile_expr(expr.children[0], env)
@@ -284,7 +301,7 @@ def compile_cmd(cmd: lark.Tree, env: Env) -> str:
         lhs = cmd.children[0].value
         rhs = compile_expr(cmd.children[1], env)
         v = env.varLists[funID][lhs]
-        tsize = TYPES[v.type]
+        tsize = TYPES[v.type] if v.pdepth == env.pdepth else 8
         return (f"{rhs}\n"
                 f"   mov {ASM_POINTER_SIZE[tsize]} [rbp{offsets[lhs]:+}], {AX_REGISTERS[tsize]}")
     elif cmd.data == "passignment":
@@ -376,6 +393,7 @@ def compile_var(ast: lark.Tree) -> str:
 def compile(program: lark.ParseTree) -> str:
     functions = fun_list(program)
     vars = {f.id: var_list(f.tree) for f in functions.values()}
+    print(vars)
     offsets = {f.id: var_offsets(vars[f.id].values(), TYPES)
                for f in functions.values()}
     env = Env(funID=None, functionList=functions,
