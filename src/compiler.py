@@ -209,6 +209,7 @@ def compile_expr(expr: lark.Tree, env: dict[str, int] = None, varDict: dict[str,
         # size of the variables defined in the funciton, and not the arguments
         noffsets = list(filter(lambda x: x < 0, offsets.values()))
         varSize = -min(noffsets) if len(noffsets) > 0 else 0
+        varSize = varSize if varSize % 8 == 0 else (varSize // 8 + 1) * 8
         return (f"{out}:\n"
                 f"   push rbp\n"
                 f"   mov rbp, rsp\n"
@@ -301,6 +302,7 @@ def compile_cmd(cmd: lark.Tree, env: Env) -> str:
     elif cmd.data == "return":
         noffsets = list(filter(lambda x: x < 0, offsets.values()))
         varSize = -min(noffsets) if len(noffsets) > 0 else 0
+        varSize = varSize if varSize % 8 == 0 else (varSize // 8 + 1) * 8
         return (f"   pop rdi\n   pop rsi\n   add rsp, {varSize}\n"
                 f"{compile_expr(cmd.children[0], env)}\n"
                 f"   pop rbp\n   ret\n")
