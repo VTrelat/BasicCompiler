@@ -26,9 +26,9 @@ class Env:
     offsets: dict[str, dict[str, int]]
 
 
-COUNT = iter(range(10000))
-op2asm = {"+": "add", "-": "sub", "*": "mul", "/": "div", "&": "lea"}
-types = {
+ASM_BINOP = {"+": "add", "-": "sub", "*": "imul", "/": "idiv", "&": "lea"}
+ASM_MONOP = {"&": "lea", "-": "neg"}
+TYPES = {
     "int": 8,
     "char": 1,
     "int *": 8
@@ -45,7 +45,6 @@ AX_REGISTERS = {
     4: "eax",
     8: "rax"
 }
-functions = None
 
 # grammar
 grammar = lark.Lark("""
@@ -56,6 +55,7 @@ expr : ID -> variable
      | expr OP expr -> binexpr
      | "(" expr ")" -> parenexpr
      | P_OP ID -> pexpr
+     | MONOP expr -> monexpr
      | deref -> deref
      | ID "(" expr ("," expr)* ")" -> fcall
 deref : "*" deref -> follow_pointer
@@ -77,8 +77,9 @@ function : TYPE ID "(" variables ")" "{" bloc "}"
 TYPE : /(int|char)\s*[*\s*]*/
 COMMENT : "(*" /(.|\\n|\\r)+/ "*)" |  "//" /(.)+/ NEWLINE
 program : function+
-NUMBER : /\d+/
-OP : "+" | "-" | "*" | "/" | "^" | "==" | "!=" | "<" | ">"
+NUMBER : /[-+]?\d+/
+OP : "+" | "-" | "*" | "/"
+MONOP : "-"
 P_OP : "&"
 ID : /[a-zA-Z][a-zA-Z0-9]*/
 %ignore COMMENT
@@ -125,6 +126,8 @@ def prettify_expr(expr: lark.Tree) -> str:
     elif expr.data == "fcall":
         args = ','.join([prettify_expr(e) for e in expr.children[1:]])
         return f"{expr.children[0].value}({args})"
+    elif expr.data == "monexpr":
+        return f"{expr.children[0].value}{prettify_expr(expr.children[1])}"
     else:
         raise Exception("Unknown expr", expr.data)
 
@@ -185,18 +188,33 @@ def compile_expr(expr: lark.Tree, env: dict[str, int] = None, varDict: dict[str,
     varList = env.varLists[funID]
     if expr.data == "variable":
         varID = expr.children[0].value
-        cmd = "mov" if types[varList[varID].type] > 2 else "movsx"
-        return f"   {cmd} rax, {ASM_POINTER_SIZE[types[varList[varID].type]]} [rbp{offsets[varID]:+}]"
+        cmd = "mov" if TYPES[varList[varID].type] > 2 else "movsx"
+        return f"   {cmd} rax, {ASM_POINTER_SIZE[TYPES[varList[varID].type]]} [rbp{offsets[varID]:+}]"
     elif expr.data == "number":
         return f"   mov rax, {expr.children[0].value}"
     elif expr.data == "binexpr":
         e1 = compile_expr(expr.children[0], env)
         e2 = compile_expr(expr.children[2], env)
-        op = expr.children[1].value
-        return f"{e2}\n   push rax\n{e1}\n   pop rbx\n   {op2asm[op]} rax, rbx\n"
+        op = ASM_BINOP[expr.children[1].value]
+        return f"{e2}\n   push rax\n{e1}\n   pop rbx\n   {op} rax, rbx\n"
+    elif expr.data == "monexpr":
+        e1 = compile_expr(expr.children[1], env)
+        op = ASM_MONOP[expr.children[0].value]
+        return f"{e1}\n   {op} rax\n"
+    elif expr.data == "comparison":
+        e1 = compile_expr(expr.children[0], env)
+        e2 = compile_expr(expr.children[2], env)
+        op = ASM_COMPARATOR[expr.children[1].value]
+        return (f"{e2}\n"
+                f"   push rax\n"
+                f"{e1}\n"
+                f"   pop rbx\n"
+                f"   cmp rax, rbx\n"
+                f"   xor rax, rax\n"
+                f"   {op} al\n")
     elif expr.data == "pexpr":
         op = expr.children[0].value
-        return f"   {op2asm[op]} rax, [rbp{offsets[expr.children[1].value]:+}]\n"
+        return f"   {ASM_BINOP[op]} rax, [rbp{offsets[expr.children[1].value]:+}]\n"
     elif expr.data == "follow_pointer":
         return "   mov rax, [rax]\n"
     elif expr.data == "deref":
@@ -241,8 +259,8 @@ def compile_cmd(cmd: lark.Tree, env: Env) -> str:
         lhs = cmd.children[1].value
         rhs = compile_expr(cmd.children[2], env)
         v = env.varLists[funID][lhs]
-        tsize = types[v.type]
-        cmd = "mov" if types[v.type] > 2 else "movsx"
+        tsize = TYPES[v.type]
+        cmd = "mov" if TYPES[v.type] > 2 else "movsx"
         return (f"{rhs}\n"
                 f"   mov {ASM_POINTER_SIZE[tsize]} [rbp{offsets[lhs]:+}], {AX_REGISTERS[tsize]}")
     elif cmd.data == "declaration":
@@ -251,7 +269,7 @@ def compile_cmd(cmd: lark.Tree, env: Env) -> str:
         lhs = cmd.children[0].value
         rhs = compile_expr(cmd.children[1], env)
         v = env.varLists[funID][lhs]
-        tsize = types[v.type]
+        tsize = TYPES[v.type]
         return (f"{rhs}\n"
                 f"   mov {ASM_POINTER_SIZE[tsize]} [rbp{offsets[lhs]:+}], {AX_REGISTERS[tsize]}")
     elif cmd.data == "passignment":
@@ -306,7 +324,7 @@ def compile_cmd(cmd: lark.Tree, env: Env) -> str:
         noffsets = list(filter(lambda x: x < 0, offsets.values()))
         varSize = -min(noffsets) if len(noffsets) > 0 else 0
         varSize = varSize if varSize % 8 == 0 else (varSize // 8 + 1) * 8
-        retSize = types[env.functionList[funID].type]
+        retSize = TYPES[env.functionList[funID].type]
         cohersion = "   movsx rax {AX_REGISTERS[types[env.functionList[funID].type]]}\n" if retSize < 8 else ""
         return (f"   pop rdi\n"
                 f"   pop rsi\n"
@@ -343,7 +361,7 @@ def compile_var(ast: lark.Tree) -> str:
 def compile(program: lark.ParseTree) -> str:
     functions = fun_list(program)
     vars = {f.id: var_list(f.tree) for f in functions.values()}
-    offsets = {f.id: var_offsets(vars[f.id].values(), types)
+    offsets = {f.id: var_offsets(vars[f.id].values(), TYPES)
                for f in functions.values()}
     env = Env(funID=None, functionList=functions,
               varLists=vars, offsets=offsets)
