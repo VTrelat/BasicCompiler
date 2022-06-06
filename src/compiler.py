@@ -306,9 +306,15 @@ def compile_cmd(cmd: lark.Tree, env: Env) -> str:
         noffsets = list(filter(lambda x: x < 0, offsets.values()))
         varSize = -min(noffsets) if len(noffsets) > 0 else 0
         varSize = varSize if varSize % 8 == 0 else (varSize // 8 + 1) * 8
-        return (f"   pop rdi\n   pop rsi\n   add rsp, {varSize}\n"
+        retSize = types[env.functionList[funID].type]
+        cohersion = "   movsx rax {AX_REGISTERS[types[env.functionList[funID].type]]}\n" if retSize < 8 else ""
+        return (f"   pop rdi\n"
+                f"   pop rsi\n"
+                f"   add rsp, {varSize}\n"
                 f"{compile_expr(cmd.children[0], env)}\n"
-                f"   pop rbp\n   ret\n")
+                f"   {cohersion}"
+                f"   pop rbp\n"
+                f"   ret\n")
     elif cmd.data == "readint":
         lhs = cmd.children[0].value
         return (f"   lea rax, [rbp{offsets[lhs]:+}]\n"
