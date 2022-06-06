@@ -71,6 +71,7 @@ cmd : TYPE ID "=" expr ";" -> initialization
     | "printf" "(" expr ")" ";" -> printf
     | COMMENT
     | "giveMeBack" expr ";" -> return
+    | "getMeVar" ID ";" -> readint
 bloc : (cmd)*
 function : TYPE ID "(" variables ")" "{" bloc "}"
 TYPE : /(int|char)\s*[*\s*]*/
@@ -162,6 +163,8 @@ def prettify_cmd(cmd: lark.Tree, indent: str) -> str:
         return ""
     elif cmd.data == "return":
         return f"giveMeBack {prettify_expr(cmd.children[0])};"
+    elif cmd.data == "readint":
+        return f"getMeVar {cmd.children[0].value};"
     else:
         raise Exception("Unknown cmd", cmd.data)
 
@@ -306,6 +309,13 @@ def compile_cmd(cmd: lark.Tree, env: Env) -> str:
         return (f"   pop rdi\n   pop rsi\n   add rsp, {varSize}\n"
                 f"{compile_expr(cmd.children[0], env)}\n"
                 f"   pop rbp\n   ret\n")
+    elif cmd.data == "readint":
+        lhs = cmd.children[0].value
+        return (f"   lea rax, [rbp{offsets[lhs]:+}]\n"
+                f"   mov rsi, rax\n"
+                f"   mov rdi, read\n"
+                f"   xor rax, rax\n"
+                f"   call __isoc99_scanf\n")
     else:
         raise Exception("Not implemented", cmd.data)
 
