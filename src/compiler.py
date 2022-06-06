@@ -182,7 +182,7 @@ def compile_expr(expr: lark.Tree, env: dict[str, int] = None, varDict: dict[str,
     varList = env.varLists[funID]
     if expr.data == "variable":
         varID = expr.children[0].value
-        cmd = "mov" if types[varList[varID].type] > 2 else "movzx"
+        cmd = "mov" if types[varList[varID].type] > 2 else "movsx"
         return f"   {cmd} rax, {ASM_POINTER_SIZE[types[varList[varID].type]]} [rbp{offsets[varID]:+}]"
     elif expr.data == "number":
         return f"   mov rax, {expr.children[0].value}"
@@ -239,7 +239,7 @@ def compile_cmd(cmd: lark.Tree, env: Env) -> str:
         rhs = compile_expr(cmd.children[2], env)
         v = env.varLists[funID][lhs]
         tsize = types[v.type]
-        cmd = "mov" if types[v.type] > 2 else "movzx"
+        cmd = "mov" if types[v.type] > 2 else "movsx"
         return (f"{rhs}\n"
                 f"   mov {ASM_POINTER_SIZE[tsize]} [rbp{offsets[lhs]:+}], {AX_REGISTERS[tsize]}")
     elif cmd.data == "declaration":

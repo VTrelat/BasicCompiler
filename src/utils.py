@@ -41,12 +41,12 @@ def var_list(function: lark.Tree) -> dict[str, Var]:
 
 def var_offsets(vars: list[Var], types: dict[str, int]) -> dict[str, int]:
     offset = 0
-    noffset = 8 + sum([types[v.type] for v in vars if v.argument])
+    noffset = 8 + len(list(filter(lambda v: v.argument, vars)))*8
     res = {}
     for v in vars:
         if v.argument:
             res[v.id] = noffset
-            noffset -= types[v.type]
+            noffset -= 8
         else:
             offset -= types[v.type]
             res[v.id] = offset
