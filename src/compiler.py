@@ -27,6 +27,14 @@ class Env:
 
 
 ASM_BINOP = {"+": "add", "-": "sub", "*": "imul", "/": "idiv", "&": "lea"}
+ASM_COMPARATOR = {
+    "==": "sete",
+    "!=": "setne",
+    "<=": "setle",
+    ">=": "setge",
+    "<": "setl",
+    ">": "setg"
+}
 ASM_MONOP = {"&": "lea", "-": "neg"}
 TYPES = {
     "int": 8,
@@ -53,6 +61,7 @@ variables : TYPE ID ("," TYPE ID)*
 expr : ID -> variable
      | NUMBER -> number
      | expr OP expr -> binexpr
+     | expr COMPARATOR expr -> comparison
      | "(" expr ")" -> parenexpr
      | P_OP ID -> pexpr
      | MONOP expr -> monexpr
@@ -80,6 +89,7 @@ program : function+
 NUMBER : /[-+]?\d+/
 OP : "+" | "-" | "*" | "/"
 MONOP : "-"
+COMPARATOR : "==" | "<=" | ">=" | "<" | ">" | "!="
 P_OP : "&"
 ID : /[a-zA-Z][a-zA-Z0-9]*/
 %ignore COMMENT
@@ -128,6 +138,11 @@ def prettify_expr(expr: lark.Tree) -> str:
         return f"{expr.children[0].value}({args})"
     elif expr.data == "monexpr":
         return f"{expr.children[0].value}{prettify_expr(expr.children[1])}"
+    elif expr.data == "comparison":
+        lhs = prettify_expr(expr.children[0])
+        comparator = expr.children[1].value
+        rhs = prettify_expr(expr.children[2])
+        return f"{lhs} {comparator} {rhs}"
     else:
         raise Exception("Unknown expr", expr.data)
 
