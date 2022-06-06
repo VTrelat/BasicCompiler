@@ -73,7 +73,7 @@ deref : "*" deref -> follow_pointer
 cmd : TYPE ID "=" expr ";" -> initialization
     | TYPE ID ";" -> declaration
     | ID "=" expr ";" -> assignment
-    | deref "=" expr ";" -> passignment
+    | "*" deref "=" expr ";" -> passignment
     | "while" "(" expr ")" "{" bloc "}" -> while
     | "if" "(" expr ")" "{" bloc "}" -> if
     | "if" "(" expr ")" "{" bloc "}" "else" "{" bloc "}" -> ifelse
@@ -164,7 +164,7 @@ def prettify_cmd(cmd: lark.Tree, indent: str) -> str:
         return f"{cmd.children[0].value} = {prettify_expr(cmd.children[1])};"
     elif cmd.data == "passignment":
         deref = prettify_expr(cmd.children[0])
-        return (f"{deref} = {prettify_expr(cmd.children[1])};")
+        return (f"*{deref} = {prettify_expr(cmd.children[1])};")
     elif cmd.data in ["while", "if"]:
         return (f"{cmd.data} ({prettify_expr(cmd.children[0])}) {{\n"
                 f"{prettify_bloc(cmd.children[1], indent)}\n"
@@ -250,7 +250,10 @@ def compile_expr(expr: lark.Tree, env: dict[str, int] = None, varDict: dict[str,
     elif expr.data == "deref":
         env.pdepth = 0
         env.curVar = ""
-        return compile_expr(expr.children[0], env)
+        res = compile_expr(expr.children[0], env)
+        env.curVar = ""
+        env.pdepth = 0
+        return res
     elif expr.data == "parenexpr":
         return compile_expr(expr.children[0], env)
     elif expr.data == "function":
@@ -301,6 +304,7 @@ def compile_cmd(cmd: lark.Tree, env: Env) -> str:
         lhs = cmd.children[0].value
         rhs = compile_expr(cmd.children[1], env)
         v = env.varLists[funID][lhs]
+        print("env", env)
         tsize = TYPES[v.type] if v.pdepth == env.pdepth else 8
         return (f"{rhs}\n"
                 f"   mov {ASM_POINTER_SIZE[tsize]} [rbp{offsets[lhs]:+}], {AX_REGISTERS[tsize]}")
