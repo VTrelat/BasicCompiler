@@ -58,7 +58,7 @@ AX_REGISTERS = {
 # grammar
 grammar = lark.Lark("""
 %import common.NEWLINE
-variables : TYPE ID ("," TYPE ID)*
+variables : (TYPE ID)? ("," TYPE ID)*
 expr : ID -> variable
      | NUMBER -> number
      | expr OP expr -> binexpr
@@ -67,7 +67,7 @@ expr : ID -> variable
      | P_OP ID -> pexpr
      | MONOP expr -> monexpr
      | deref -> deref
-     | ID "(" expr ("," expr)* ")" -> fcall
+     | ID "(" expr? ("," expr)* ")" -> fcall
 deref : "*" deref -> follow_pointer
       | ID -> variable
 cmd : TYPE ID "=" expr ";" -> initialization
@@ -278,7 +278,7 @@ def compile_expr(expr: lark.Tree, env: dict[str, int] = None, varDict: dict[str,
         args = '\n'.join(compile_expr(e, env) +
                          '\n   push rax' for e in expr.children[1:])
         callee_offests = env.offsets[expr.children[0].value]
-        argsSize = max(callee_offests.values()) - 8
+        argsSize = max(callee_offests.values()) - 8 if len(callee_offests.values()) > 0 else 0
         return (f"{args}\n"
                 f"   call {calleeID}\n"
                 f"   add rsp, {argsSize}\n")
