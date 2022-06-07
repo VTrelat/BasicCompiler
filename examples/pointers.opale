@@ -1,0 +1,12 @@
+int main() {
+    int a = 255;
+    int * p;
+    int ** q;
+    p = &a;
+    q = &p;
+    printf(p);
+    printf(q);
+    printf(*p);
+    printf(**q);
+    giveMeBack 0;
+}
