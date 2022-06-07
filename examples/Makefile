@@ -1,4 +1,4 @@
-all: fib pointers pointers_magic
+all: fib pointers pointers_magic types
 
 run: all
 	./fib
@@ -23,3 +23,8 @@ pointers_magic: pointers_magic.opale
 	../src/compiler.py pointers_magic.opale pointers_magic.asm
 	nasm -f elf64 pointers_magic.asm
 	gcc -no-pie -fno-pie pointers_magic.o -o pointers_magic
+
+types: types.opale
+	../src/compiler.py types.opale types.asm
+	nasm -f elf64 types.asm
+	gcc -no-pie -fno-pie types.o -o types
