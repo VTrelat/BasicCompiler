@@ -237,8 +237,8 @@ def compile_expr(expr: lark.Tree, env: dict[str, int] = None, varDict: dict[str,
                 f"{e1}\n"
                 f"   pop rbx\n"
                 f"   cmp rax, rbx\n"
-                f"   xor rax, rax\n"
-                f"   {op} al\n")
+                f"   {op} al\n"
+                f"   and rax, 0x000000ff")
     elif expr.data == "pexpr":
         op = expr.children[0].value
         return f"   {ASM_MONOP[op]} rax, [rbp{offsets[expr.children[1].value]:+}]\n"
