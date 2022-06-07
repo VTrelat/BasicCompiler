@@ -14,7 +14,7 @@ Compile the generated ASM code:
 
 ## Functionality
 
-**DISCLAIMER**: There is no check before compiling the code. As long as an expression is valid, it will be compiled. We might implement a checker later, but for now, the programmer is responsible for making sensible code. One could for instance dereference a variable, but the outcome will be undefined.
+>**DISCLAIMER**: There is no check before compiling the code. As long as an expression is valid, it will be compiled. We might implement a checker later, but for now, the programmer is responsible for making sensible code. One could for instance dereference a variable, but the outcome will be undefined.
 
 * functions: One can write and call functions within the code. The function calls use 32bit convention (variables are put on the stack and the function is then called).
 
