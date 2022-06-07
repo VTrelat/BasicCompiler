@@ -79,7 +79,7 @@ cmd : TYPE ID "=" expr ";" -> initialization
     | "if" "(" expr ")" "{" bloc "}" "else" "{" bloc "}" -> ifelse
     | cmd ";" cmd
     | "printf" "(" expr ")" ";" -> printf
-    | COMMENT
+    | COMMENT -> comment
     | "giveMeBack" expr ";" -> return
     | "getMeVar" ID ";" -> readint
 bloc : (cmd)*
@@ -93,7 +93,6 @@ MONOP : "-"
 COMPARATOR : "==" | "<=" | ">=" | "<" | ">" | "!="
 P_OP : "&"
 ID : /[a-zA-Z][a-zA-Z0-9]*/
-%ignore COMMENT
 %import common.WS
 %ignore WS
 """, start="program")
@@ -178,8 +177,8 @@ def prettify_cmd(cmd: lark.Tree, indent: str) -> str:
                 f"{indent}}}")
     elif cmd.data == "printf":
         return f"printf({prettify_expr(cmd.children[0])});"
-    elif cmd.data == "COMMENT":
-        return ""
+    elif cmd.data == "comment":
+        return cmd.children[0].value.strip()
     elif cmd.data == "return":
         return f"giveMeBack {prettify_expr(cmd.children[0])};"
     elif cmd.data == "readint":
@@ -354,7 +353,7 @@ def compile_cmd(cmd: lark.Tree, env: Env) -> str:
                 f"alt{cmd.data}{index} :\n"
                 f"{b2}\n"
                 f"end{cmd.data}{index} :\n")
-    elif cmd.data == "COMMENT":
+    elif cmd.data == "comment":
         return ""
     elif cmd.data == "return":
         noffsets = list(filter(lambda x: x < 0, offsets.values()))
