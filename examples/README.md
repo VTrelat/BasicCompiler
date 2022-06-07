@@ -4,7 +4,7 @@ You can find example source code in here
 
 ## Compilation
 
-You can run `make` to compile all the source files provided. ASM files are also generator for you to check out
+You can run `make` to compile all the source files provided. ASM files are also generated for you to check out
 
 ## Running the example
 
