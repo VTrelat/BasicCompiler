@@ -9,10 +9,10 @@ from utils import fun_list, var_list, count_char, var_offsets, Var, Fun
 sys_name = platform.system()
 if sys_name == "Linux":
     F_LEADER = ""
-    TEMPLATE = "linux_template.asm"
+    from templates import LINUX_TEMPLATE as TEMPLATE
 elif sys_name == "Darwin":
     F_LEADER = "_"
-    TEMPLATE = "darwin_template.asm"
+    from templates import DARWIN_TEMPLATE as TEMPLATE
 else:
     raise Exception("Platform not supported")
 
@@ -402,29 +402,27 @@ def compile(program: lark.ParseTree) -> str:
                for f in functions.values()}
     env = Env(funID=None, functionList=functions,
               varLists=vars, offsets=offsets)
-    with open(TEMPLATE) as f:
-        template = f.read()
-        var_decl = "\n".join([f"{x} : dq 0" for x in var_list(program)])
-        template = template.replace("VAR_DECL", var_decl)
+    template = TEMPLATE
+    var_decl = "\n".join([f"{x} : dq 0" for x in var_list(program)])
+    template = template.replace("VAR_DECL", var_decl)
 
-        func_asm = ""
-        for function in program.children:
-            # child.data : function symbol
-            # child.children[0].value : function type
-            # child.children[1].value : function name
-            # print(vars)
-            # print(offsets)
-            env.funID = function.children[1].value
-            print(env)
-            func_asm += compile_expr(function, env)
-        template = template.replace("FUN_DECL", func_asm)
-        # template = template.replace(
-        #     "RETURN", compile_expr(program.children[2]))
-        # template = template.replace("BODY", compile_bloc(program.children[1]))
-        # template = template.replace(
-        #     "VAR_INIT", compile_var(program.children[0]))
-        f.close()
-        return template
+    func_asm = ""
+    for function in program.children:
+        # child.data : function symbol
+        # child.children[0].value : function type
+        # child.children[1].value : function name
+        # print(vars)
+        # print(offsets)
+        env.funID = function.children[1].value
+        print(env)
+        func_asm += compile_expr(function, env)
+    template = template.replace("FUN_DECL", func_asm)
+    # template = template.replace(
+    #     "RETURN", compile_expr(program.children[2]))
+    # template = template.replace("BODY", compile_bloc(program.children[1]))
+    # template = template.replace(
+    #     "VAR_INIT", compile_var(program.children[0]))
+    return template
 
 
 # with open("program.opale", "r") as f:
