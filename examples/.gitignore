@@ -1,3 +1,4 @@
 *
 !*.opale
-Makefile
+!Makefile
+!README.md
