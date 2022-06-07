@@ -1,4 +1,5 @@
 #! /usr/bin/env python3
+import getopt
 import sys
 import lark
 import platform
@@ -258,9 +259,9 @@ def compile_expr(expr: lark.Tree, env: dict[str, int] = None, varDict: dict[str,
     elif expr.data == "function":
         bloc = re.sub("\n[\n]+", '\n',
                       compile_bloc(expr.children[3], env))
-        print(bloc)
+        # print(bloc)
         out = F_LEADER+expr.children[1].value.strip()
-        print(offsets, offsets.values())
+        # print(offsets, offsets.values())
         # size of the variables defined in the funciton, and not the arguments
         noffsets = list(filter(lambda x: x < 0, offsets.values()))
         varSize = -min(noffsets) if len(noffsets) > 0 else 0
@@ -303,7 +304,7 @@ def compile_cmd(cmd: lark.Tree, env: Env) -> str:
         lhs = cmd.children[0].value
         rhs = compile_expr(cmd.children[1], env)
         v = env.varLists[funID][lhs]
-        print("env", env)
+        # print("env", env)
         tsize = TYPES[v.type] if v.pdepth == env.pdepth else 8
         return (f"{rhs}\n"
                 f"   mov {ASM_POINTER_SIZE[tsize]} [rbp{offsets[lhs]:+}], {AX_REGISTERS[tsize]}")
@@ -396,7 +397,7 @@ def compile_var(ast: lark.Tree) -> str:
 def compile(program: lark.ParseTree) -> str:
     functions = fun_list(program)
     vars = {f.id: var_list(f.tree) for f in functions.values()}
-    print(vars)
+    # print(vars)
     offsets = {f.id: var_offsets(vars[f.id].values(), TYPES)
                for f in functions.values()}
     env = Env(funID=None, functionList=functions,
@@ -413,7 +414,7 @@ def compile(program: lark.ParseTree) -> str:
         # print(vars)
         # print(offsets)
         env.funID = function.children[1].value
-        print(env)
+        # print(env)
         func_asm += compile_expr(function, env)
     template = template.replace("FUN_DECL", func_asm)
     # template = template.replace(
@@ -427,20 +428,64 @@ def compile(program: lark.ParseTree) -> str:
 # with open("program.opale", "r") as f:
 #     program = grammar.parse(str(f.read()))
 #     print(compile(program))
-
 def save_to_file(filename: str, content: str) -> None:
+    if filename == sys.stdout:
+        print(content)
+        return
     with open(filename, "w") as f:
         f.write(content)
 
 
-if len(sys.argv) > 1:
-    with open(sys.argv[1], "r") as f:
-        print("Parsing...")
+def main(argv):
+    outputFile = sys.stdout
+    p = False
+    try:
+        opts, args = getopt.getopt(argv[1:], ':ho:p')
+        inputFile = argv[0]
+    except getopt.GetoptError:
+        print("usage: compiler.py <inputFile> -o <outputFile>")
+        sys.exit(1)
+    except IndexError:
+        print("You must provide an inputFile\n"
+              "usage: compiler.py <inputFile> -o <outputFile>")
+        sys.exit(1)
+    except:
+        print("usage: compiler.py <inputFile> -o <outputFile>")
+        sys.exit(1)
+    for opt, arg in opts:
+        if opt == "-h":
+            print("compile <inputFile> into asm and write to <outputFile> or stdin\n"
+                  "usage: compiler.py <inputFile> -o <outputFile>\n"
+                  "       -p    to prettify instead (write on inputFile)")
+            sys.exit(0)
+        elif opt == "-p":
+            p = True
+        elif opt == "-o":
+            outputFile = arg
+    with open(inputFile, 'r') as f:
         program = grammar.parse(str(f.read()))
-        save_to_file(sys.argv[1], prettify(program))
-    print("Saving to file...")
-    print(compile(program))
-    save_to_file(sys.argv[2], compile(program))
-    print(f"Saved to {sys.argv[2]}")
-else:
-    print("Give two arguments: program and filename")
+        if p:
+            save_to_file(inputFile, prettify(program))
+        else:
+            save_to_file(outputFile, compile(program))
+
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
+
+
+
+
+# if len(sys.argv) > 1:
+#     with open(sys.argv[1], "r") as f:
+#         print("Parsing...")
+#         program = grammar.parse(str(f.read()))
+#         save_to_file(sys.argv[1], prettify(program))
+#     print("Saving to file...")
+#     print(compile(program))
+#     save_to_file(sys.argv[2], compile(program))
+#     print(f"Saved to {sys.argv[2]}")
+# else:
+#     print("Give two arguments: program and filename")
