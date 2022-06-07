@@ -258,9 +258,9 @@ def compile_expr(expr: lark.Tree, env: dict[str, int] = None, varDict: dict[str,
     elif expr.data == "function":
         bloc = re.sub("\n[\n]+", '\n',
                       compile_bloc(expr.children[3], env))
-        print(bloc)
+        # print(bloc)
         out = F_LEADER+expr.children[1].value.strip()
-        print(offsets, offsets.values())
+        # print(offsets, offsets.values())
         # size of the variables defined in the funciton, and not the arguments
         noffsets = list(filter(lambda x: x < 0, offsets.values()))
         varSize = -min(noffsets) if len(noffsets) > 0 else 0
@@ -303,7 +303,7 @@ def compile_cmd(cmd: lark.Tree, env: Env) -> str:
         lhs = cmd.children[0].value
         rhs = compile_expr(cmd.children[1], env)
         v = env.varLists[funID][lhs]
-        print("env", env)
+        # print("env", env)
         tsize = TYPES[v.type] if v.pdepth == env.pdepth else 8
         return (f"{rhs}\n"
                 f"   mov {ASM_POINTER_SIZE[tsize]} [rbp{offsets[lhs]:+}], {AX_REGISTERS[tsize]}")
@@ -396,7 +396,7 @@ def compile_var(ast: lark.Tree) -> str:
 def compile(program: lark.ParseTree) -> str:
     functions = fun_list(program)
     vars = {f.id: var_list(f.tree) for f in functions.values()}
-    print(vars)
+    # print(vars)
     offsets = {f.id: var_offsets(vars[f.id].values(), TYPES)
                for f in functions.values()}
     env = Env(funID=None, functionList=functions,
@@ -413,7 +413,7 @@ def compile(program: lark.ParseTree) -> str:
         # print(vars)
         # print(offsets)
         env.funID = function.children[1].value
-        print(env)
+        # print(env)
         func_asm += compile_expr(function, env)
     template = template.replace("FUN_DECL", func_asm)
     # template = template.replace(
