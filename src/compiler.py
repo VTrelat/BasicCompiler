@@ -1,4 +1,5 @@
 #! /usr/bin/env python3
+import getopt
 import sys
 import lark
 import platform
@@ -427,20 +428,64 @@ def compile(program: lark.ParseTree) -> str:
 # with open("program.opale", "r") as f:
 #     program = grammar.parse(str(f.read()))
 #     print(compile(program))
-
 def save_to_file(filename: str, content: str) -> None:
+    if filename == sys.stdout:
+        print(content)
+        return
     with open(filename, "w") as f:
         f.write(content)
 
 
-if len(sys.argv) > 1:
-    with open(sys.argv[1], "r") as f:
-        print("Parsing...")
+def main(argv):
+    outputFile = sys.stdout
+    p = False
+    try:
+        opts, args = getopt.getopt(argv[1:], ':ho:p')
+        inputFile = argv[0]
+    except getopt.GetoptError:
+        print("usage: compiler.py <inputFile> -o <outputFile>")
+        sys.exit(1)
+    except IndexError:
+        print("You must provide an inputFile\n"
+              "usage: compiler.py <inputFile> -o <outputFile>")
+        sys.exit(1)
+    except:
+        print("usage: compiler.py <inputFile> -o <outputFile>")
+        sys.exit(1)
+    for opt, arg in opts:
+        if opt == "-h":
+            print("compile <inputFile> into asm and write to <outputFile> or stdin\n"
+                  "usage: compiler.py <inputFile> -o <outputFile>\n"
+                  "       -p    to prettify instead (write on inputFile)")
+            sys.exit(0)
+        elif opt == "-p":
+            p = True
+        elif opt == "-o":
+            outputFile = arg
+    with open(inputFile, 'r') as f:
         program = grammar.parse(str(f.read()))
-        save_to_file(sys.argv[1], prettify(program))
-    print("Saving to file...")
-    print(compile(program))
-    save_to_file(sys.argv[2], compile(program))
-    print(f"Saved to {sys.argv[2]}")
-else:
-    print("Give two arguments: program and filename")
+        if p:
+            save_to_file(inputFile, prettify(program))
+        else:
+            save_to_file(outputFile, compile(program))
+
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
+
+
+
+
+# if len(sys.argv) > 1:
+#     with open(sys.argv[1], "r") as f:
+#         print("Parsing...")
+#         program = grammar.parse(str(f.read()))
+#         save_to_file(sys.argv[1], prettify(program))
+#     print("Saving to file...")
+#     print(compile(program))
+#     save_to_file(sys.argv[2], compile(program))
+#     print(f"Saved to {sys.argv[2]}")
+# else:
+#     print("Give two arguments: program and filename")
