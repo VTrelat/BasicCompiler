@@ -1,8 +1,24 @@
-# BasicCompiler
+- [About this project](#about-this-project)
+- [BasicCompiler](#simple-compiler)
+  * [Formating](#formating)
+  * [Using the compiler](#using-the-compiler)
+  * [Functionality](#functionality)
+
+---
+
+# About this project
+
+This project was carried out as part of a 2nd year advanced compilation course at the Ecole des Mines de Nancy.
+
+# Simple compiler
 
 Our language uses a C-like syntax. The compiler is written in Python and uses Lark to parse the input file.
 The compiler produces ASM code that needs to be compiled and linked using nasm and gcc (for example).
 The compiler works on MacOS and Linux systems. Windows has not been implemented.
+
+## Formating
+
+An input file can be prettified with respect to the Lark grammar with the function `prettify` defined in `compiler.py`. When compiling a file, it is automatically formated.
 
 ## Using the compiler
 `./compiler.py [inputFile] [asmOutputFile]` or
