@@ -37,13 +37,13 @@ An input file can be prettified with respect to the Lark grammar with the functi
 -   Compiling and formatting
 
     -   compile : `./compiler.py [inputFile] -o [asmOutputFile]` or
-        `python3 compiler.py [inputFile] [asmOutputFile]`
+        `python3 compiler.py [inputFile] -o [asmOutputFile]`
     -   help : `./compiler.py -h` or `python3 compiler.py -h`
     -   format input file : `./compiler.py [inputFile] -p` or `python3 compiler.py [inputFile] -p`
 
 -   Compile the generated ASM code:
 
-    -   Linux : `nasm -f elf64 [asmOutputFile] && gcc -no-pie [asmOutputFile].o -o [executableFile]`
+    -   Linux : `nasm -f elf64 [asmOutputFile] && gcc -no-pie -fno-pie [asmOutputFile].o -o [executableFile]`
     -   MacOS : `nasm -f macho64 [asmOutputFile] && gcc -no-pie -fno-pie [asmOutputFile].o -o [executableFile]`
 
 ## Functionality
@@ -52,7 +52,7 @@ An input file can be prettified with respect to the Lark grammar with the functi
 
 -   functions: One can write and call functions within the code. The function calls use 32bit convention (variables are put on the stack and the function is then called). Recursion is supported.
 
--   pointers: for now, arithmetic of pointers does not work (the size of what the pointer points to is not detected, but the programmer might still do the maths themselves). However one can get references to variables and dereference pointers (just like in C).
+-   pointers: for now, arithmetic of pointers does not work (the size of what the pointer points to is not detected, but the programmer might still do the maths themselves). However one can get references to variables and dereference pointers (just like in C). 
 
     > TODO: arithmetic of pointers.
 
