@@ -375,7 +375,7 @@ def compile_cmd(cmd: lark.Tree, env: Env) -> str:
                 f"   mov rsi, rax\n"
                 f"   mov rdi, read\n"
                 f"   xor rax, rax\n"
-                f"   call __isoc99_scanf\n")
+                f"   call {F_LEADER}scanf\n")
     else:
         raise Exception("Not implemented", cmd.data)
 
