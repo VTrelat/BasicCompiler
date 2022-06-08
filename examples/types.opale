@@ -1,0 +1,11 @@
+int main() {
+    int i = 255;
+    char c = 255;
+    putOnScreen i;
+    putOnScreen c;
+    i = i + 1;
+    c = c + 1;
+    putOnScreen i;
+    putOnScreen c;
+    giveMeBack 0;
+}

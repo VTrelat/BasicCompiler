@@ -336,12 +336,13 @@ def compile_cmd(cmd: lark.Tree, env: Env) -> str:
     elif cmd.data == "if":
         e = compile_expr(cmd.children[0], env)
         b = compile_bloc(cmd.children[1], env)
-        return (f"{cmd.data} :\n"
+        index = next(env.count)
+        return (f"{cmd.data}{index} :\n"
                 f"{e}\n"
                 f"   cmp rax, 0\n"
-                f"   jz end{cmd.data}\n"
+                f"   jz end{cmd.data}{index}\n"
                 f"{b}\n"
-                f"end{cmd.data} :\n")
+                f"end{cmd.data}{index} :\n")
     elif cmd.data == "ifelse":
         e = compile_expr(cmd.children[0], env)
         b1 = compile_bloc(cmd.children[1], env)

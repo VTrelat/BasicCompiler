@@ -1,0 +1,27 @@
+int main() {
+    // locale variables are stored on the stack (rbp-8, rbp-16, ...)
+    // (the offset depends on the size)
+    // sizes:
+    //  int:  8
+    //  char: 1
+    // a: rbp-8
+    int a = 255;
+    // b: rbp-16
+    int b;
+    // c: rbp-24 = rbp-8-16
+    int c = 0;
+    int * p;
+    // p points to a
+    p = &a;
+    putOnScreen *p;
+    putOnScreen a;
+    p = p - 16;
+    // p now points to c
+    putOnScreen p;
+    putOnScreen *p;
+    putOnScreen c;
+    // we can manipulate the value of c through p
+    *p = 42;
+    putOnScreen c;
+    giveMeBack 0;
+}
