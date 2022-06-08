@@ -17,3 +17,4 @@ You can also run all the provided examples using `make run`
 * `pointers`: simple usage of pointers, taking the reference of a variable, dereferencing multiple level pointers
 * `pointers_magic`: playing with pointers and manipulating values on the stack
 * `fib`: example of the fibonnaci sequence (and function call)
+* `rec`: example of a recursive fibonnaci sequence
