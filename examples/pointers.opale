@@ -4,9 +4,9 @@ int main() {
     int ** q;
     p = &a;
     q = &p;
-    printf(p);
-    printf(q);
-    printf(*p);
-    printf(**q);
+    putOnScreen p;
+    putOnScreen q;
+    putOnScreen *p;
+    putOnScreen **q;
     giveMeBack 0;
 }

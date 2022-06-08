@@ -10,6 +10,8 @@ int fib(int n) {
     giveMeBack j;
 }
 int main() {
-    printf(fib(10));
+    int n;
+    getMeVar n;
+    putOnScreen fib(n);
     giveMeBack 0;
 }

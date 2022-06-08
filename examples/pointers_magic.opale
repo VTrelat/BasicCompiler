@@ -13,15 +13,15 @@ int main() {
     int * p;
     // p points to a
     p = &a;
-    printf(*p);
-    printf(a);
+    putOnScreen *p;
+    putOnScreen a;
     p = p - 16;
     // p now points to c
-    printf(p);
-    printf(*p);
-    printf(c);
+    putOnScreen p;
+    putOnScreen *p;
+    putOnScreen c;
     // we can manipulate the value of c through p
     *p = 42;
-    printf(c);
+    putOnScreen c;
     giveMeBack 0;
 }
