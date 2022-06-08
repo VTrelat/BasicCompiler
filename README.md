@@ -1,7 +1,7 @@
 - [About this project](#about-this-project)
 - [Our language](#our-language)
 - [BasicCompiler](#simple-compiler)
-  * [Formating](#formating)
+  * [Formatting](#formatting)
   * [Using the compiler](#using-the-compiler)
   * [Functionality](#functionality)
 
@@ -17,6 +17,12 @@ Our language is a simplified version of C with fewer commands. It is strongly an
 
 > `getMeVar` seems to be broken in some cases for the moment.
 
+Single line comments `//` and multiline comments `(*` `*)` are supported.
+
+Pointers and multi-pointers are supported with and declared with the `*` operator just like in C, one may also dereference their variable with the `&` operator.
+
+> Arithmetic of pointers does not work though.
+
 
 # Simple compiler
 
@@ -24,9 +30,9 @@ Our language uses a C-like syntax. The compiler is written in Python and uses La
 The compiler produces ASM code that needs to be compiled and linked using nasm and gcc (for example).
 The compiler works on MacOS and Linux systems. Windows has not been implemented.
 
-## Formating
+## Formatting
 
-An input file can be prettified with respect to the Lark grammar with the function `prettify` defined in `compiler.py`. When compiling a file, it is automatically formated.
+An input file can be prettified with respect to the Lark grammar with the function `prettify` defined in `compiler.py`. When compiling a file, it is automatically formatted.
 
 ## Using the compiler
 `./compiler.py [inputFile] [asmOutputFile]` or
