@@ -1,4 +1,5 @@
 - [About this project](#about-this-project)
+- [Our language](#our-language)
 - [BasicCompiler](#simple-compiler)
   * [Formating](#formating)
   * [Using the compiler](#using-the-compiler)
@@ -9,6 +10,11 @@
 # About this project
 
 This project was carried out as part of a 2nd year advanced compilation course at the Ecole des Mines de Nancy.
+
+# Our language
+
+Our language is a simplified version of C with fewer commands. It is strongly and statically typed and the user can choose among a large variety of types (`int` and `char`). Some commands may vary, such as `printf` (`putOnScreen`), `return` (`giveMeBack`) and `scanf` (`getMeVar`).
+
 
 # Simple compiler
 
