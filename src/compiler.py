@@ -67,14 +67,12 @@ expr : ID -> variable
      | "(" expr ")" -> parenexpr
      | P_OP ID -> pexpr
      | MONOP expr -> monexpr
-     | deref -> deref
+     | "*" expr -> deref
      | ID "(" expr? ("," expr)* ")" -> fcall
-deref : "*" deref -> follow_pointer
-      | ID -> variable
 cmd : TYPE ID "=" expr ";" -> initialization
     | TYPE ID ";" -> declaration
     | ID "=" expr ";" -> assignment
-    | "*" deref "=" expr ";" -> passignment
+    | "*" expr "=" expr ";" -> passignment
     | "while" "(" expr ")" "{" bloc "}" -> while
     | "if" "(" expr ")" "{" bloc "}" -> if
     | "if" "(" expr ")" "{" bloc "}" "else" "{" bloc "}" -> ifelse
@@ -130,10 +128,10 @@ def prettify_expr(expr: lark.Tree) -> str:
         return f"{expr.children[0].value}{expr.children[1].value}"
     elif expr.data == "parenexpr":
         return f"({prettify_expr(expr.children[1])})"
-    elif expr.data == "follow_pointer":
-        return f"*{prettify_expr(expr.children[0])}"
+    # elif expr.data == "follow_pointer":
+    #     return f"*{prettify_expr(expr.children[0])}"
     elif expr.data == "deref":
-        return prettify_expr(expr.children[0])
+        return f"*{prettify_expr(expr.children[0])}"
     elif expr.data == "fcall":
         args = ','.join([prettify_expr(e) for e in expr.children[1:]])
         return f"{expr.children[0].value}({args})"
@@ -242,17 +240,14 @@ def compile_expr(expr: lark.Tree, env: dict[str, int] = None, varDict: dict[str,
     elif expr.data == "pexpr":
         op = expr.children[0].value
         return f"   {ASM_MONOP[op]} rax, [rbp{offsets[expr.children[1].value]:+}]\n"
-    elif expr.data == "follow_pointer":
-        prev = compile_expr(expr.children[0], env)
-        env.pdepth += 1
-        size = 8 if env.pdepth == varList[env.curVar].pdepth else TYPES[varList[env.curVar].type]
-        return f"{prev}\n   mov rax, [rax]\n"
+    # elif expr.data == "follow_pointer":
+    #     prev = compile_expr(expr.children[0], env)
+    #     env.pdepth += 1
+    #     size = 8 if env.pdepth == varList[env.curVar].pdepth else TYPES[varList[env.curVar].type]
+    #     return f"{prev}\n   mov rax, [rax]\n"
     elif expr.data == "deref":
-        env.pdepth = 0
-        env.curVar = ""
-        res = compile_expr(expr.children[0], env)
-        env.curVar = ""
-        env.pdepth = 0
+        prev = compile_expr(expr.children[0], env)
+        res = f"{prev}\n   mov rax, [rax]\n"
         return res
     elif expr.data == "parenexpr":
         return compile_expr(expr.children[0], env)
