@@ -1,7 +1,10 @@
-all: fib pointers pointers_magic types function
+all: fib pointers pointers_magic types function rec
 
 run: all
 	./fib
+	@echo
+	@echo
+	./rec
 	@echo
 	@echo
 	./pointers
@@ -19,6 +22,11 @@ fib: fib.opale
 	../src/compiler.py fib.opale -o fib.asm
 	nasm -f elf64 fib.asm
 	gcc -no-pie -fno-pie fib.o -o fib
+
+rec: rec.opale
+	../src/compiler.py rec.opale -o rec.asm
+	nasm -f elf64 rec.asm
+	gcc -no-pie -fno-pie rec.o -o rec
 
 function: function.opale
 	../src/compiler.py function.opale -o function.asm

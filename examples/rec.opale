@@ -1,0 +1,16 @@
+int fib(int n){
+    if (n == 0){
+        giveMeBack 0;
+    }
+    if (n == 1) {
+        giveMeBack 1;
+    }
+    giveMeBack fib(n-2) + fib(n-1);
+}
+
+int main(){
+    int n;
+    getMeVar n;
+    putOnScreen fib(n);
+    giveMeBack 0;
+}
