@@ -7,4 +7,5 @@ int main() {
     c = c + 1;
     putOnScreen i;
     putOnScreen c;
+    giveMeBack 0;
 }
