@@ -1,9 +1,9 @@
 - [About this project](#about-this-project)
 - [Our language](#our-language)
-- [BasicCompiler](#simple-compiler)
-  * [Formatting](#formatting)
-  * [Using the compiler](#using-the-compiler)
-  * [Functionality](#functionality)
+- [Simple compiler](#simple-compiler)
+  - [Formatting](#formatting)
+  - [Using the compiler](#using-the-compiler)
+  - [Functionality](#functionality)
 
 ---
 
@@ -21,7 +21,6 @@ Pointers and multi-pointers are supported with and declared with the `*` operato
 
 > Arithmetic of pointers does not work though.
 
-
 # Simple compiler
 
 Our language uses a C-like syntax. The compiler is written in Python and uses Lark to parse the input file.
@@ -33,22 +32,29 @@ The compiler works on MacOS and Linux systems. Windows has not been implemented.
 An input file can be prettified with respect to the Lark grammar with the function `prettify` defined in `compiler.py`. When compiling a file, it is automatically formatted.
 
 ## Using the compiler
-`./compiler.py [inputFile] [asmOutputFile]` or
-`python3 compiler.py [inputFile] [asmOutputFile]`
 
-Compile the generated ASM code:
-* Linux : `nasm -f elf64 [asmOutputFile] && gcc -no-pie [asmOutputFile].o -o [executableFile]`
-* MacOS : `nasm -f macho64 [asmOutputFile] && gcc -no-pie -fno-pie [asmOutputFile].o -o [executableFile]`
+-   Compiling and formatting
+
+    -   compile : `./compiler.py [inputFile] -o [asmOutputFile]` or
+        `python3 compiler.py [inputFile] [asmOutputFile]`
+    -   help : `./compiler.py -h` or `python3 compiler.py -h`
+    -   format input file : `./compiler.py [inputFile] -p` or `python3 compiler.py [inputFile] -p`
+
+-   Compile the generated ASM code:
+
+    -   Linux : `nasm -f elf64 [asmOutputFile] && gcc -no-pie [asmOutputFile].o -o [executableFile]`
+    -   MacOS : `nasm -f macho64 [asmOutputFile] && gcc -no-pie -fno-pie [asmOutputFile].o -o [executableFile]`
 
 ## Functionality
 
->**DISCLAIMER**: There is no check before compiling the code. As long as an expression is valid, it will be compiled. We might implement a checker later, but for now, the programmer is responsible for making sensible code. One could for instance dereference a variable, but the outcome will be undefined.
+> **DISCLAIMER**: There is no check before compiling the code. As long as an expression is valid, it will be compiled. We might implement a checker later, but for now, the programmer is responsible for making sensible code. One could for instance dereference a variable, but the outcome will be undefined.
 
-* functions: One can write and call functions within the code. The function calls use 32bit convention (variables are put on the stack and the function is then called).
+-   functions: One can write and call functions within the code. The function calls use 32bit convention (variables are put on the stack and the function is then called).
 
-* pointers: for now, arithmetic of pointers does not work (the size of what the pointer points to is not detected, but the programmer might still do the maths themselves). However one can get references to variables and dereference pointers (just like in C).
-> TODO: arithmetic of pointers.
+-   pointers: for now, arithmetic of pointers does not work (the size of what the pointer points to is not detected, but the programmer might still do the maths themselves). However one can get references to variables and dereference pointers (just like in C).
 
-* typing: basic types are present (char, int) and should be taken into consideration in the generated ASM code. The following types are present:
-    * int: 64bit integer
-    * char: 8bit integer
+    > TODO: arithmetic of pointers.
+
+-   typing: basic types are present (char, int) and should be taken into consideration in the generated ASM code. The following types are present:
+    -   int: 64bit integer
+    -   char: 8bit integer
