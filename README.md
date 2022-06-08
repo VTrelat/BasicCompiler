@@ -15,8 +15,6 @@ This project was carried out as part of a 2nd year advanced compilation course a
 
 Our language is a simplified version of C with fewer commands. It is strongly and statically typed and the user can choose among a large variety of types (`int` and `char`). Some commands may vary, such as `printf` (`putOnScreen`), `return` (`giveMeBack`) and `scanf` (`getMeVar`).
 
-> `getMeVar` seems to be broken in some cases for the moment.
-
 Single line comments `//` and multiline comments `(*` `*)` are supported.
 
 Pointers and multi-pointers are supported with and declared with the `*` operator just like in C, one may also dereference their variable with the `&` operator.
