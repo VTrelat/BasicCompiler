@@ -1,4 +1,4 @@
-all: fib pointers pointers_magic types
+all: fib pointers pointers_magic types function
 
 run: all
 	./fib
@@ -8,11 +8,22 @@ run: all
 	@echo
 	@echo
 	./pointers_magic
+	@echo
+	@echo
+	./types
+	@echo
+	@echo
+	./function
 
 fib: fib.opale
 	../src/compiler.py fib.opale -o fib.asm
 	nasm -f elf64 fib.asm
 	gcc -no-pie -fno-pie fib.o -o fib
+
+function: function.opale
+	../src/compiler.py function.opale -o function.asm
+	nasm -f elf64 function.asm
+	gcc -no-pie -fno-pie function.o -o function
 
 pointers: pointers.opale
 	../src/compiler.py pointers.opale -o  pointers.asm

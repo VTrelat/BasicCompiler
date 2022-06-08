@@ -1,0 +1,13 @@
+int refAddOne(int * x) {
+    *x = *x + 1;
+    giveMeBack 0;
+}
+int main() {
+    int i;
+    int void;
+    getMeVar i;
+    putOnScreen i;
+    void = refAddOne(&i);
+    putOnScreen i;
+    giveMeBack 0;
+}
