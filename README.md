@@ -4,6 +4,7 @@
   - [Formatting](#formatting)
   - [Using the compiler](#using-the-compiler)
   - [Functionality](#functionality)
+  - [Examples](#examples)
 
 ---
 
@@ -58,3 +59,5 @@ An input file can be prettified with respect to the Lark grammar with the functi
 -   typing: basic types are present (char, int) and should be taken into consideration in the generated ASM code. The following types are present:
     -   int: 64bit integer
     -   char: 8bit integer
+
+## [Examples](./examples)
