@@ -265,7 +265,7 @@ def compile_expr(expr: lark.Tree, env: dict[str, int] = None, varDict: dict[str,
         # size of the variables defined in the funciton, and not the arguments
         noffsets = list(filter(lambda x: x < 0, offsets.values()))
         varSize = -min(noffsets) if len(noffsets) > 0 else 0
-        varSize = varSize if varSize % 8 == 0 else (varSize // 8 + 1) * 8
+        varSize = varSize if varSize % 16 == 0 else (varSize // 16 + 1) * 16
         return (f"{out}:\n"
                 f"   push rbp\n"
                 f"   mov rbp, rsp\n"
@@ -360,7 +360,7 @@ def compile_cmd(cmd: lark.Tree, env: Env) -> str:
     elif cmd.data == "return":
         noffsets = list(filter(lambda x: x < 0, offsets.values()))
         varSize = -min(noffsets) if len(noffsets) > 0 else 0
-        varSize = varSize if varSize % 8 == 0 else (varSize // 8 + 1) * 8
+        varSize = varSize if varSize % 16 == 0 else (varSize // 16 + 1) * 16
         retSize = TYPES[env.functionList[funID].type]
         cohersion = "   movsx rax {AX_REGISTERS[types[env.functionList[funID].type]]}\n" if retSize < 8 else ""
         return (f"   pop rdi\n"
@@ -376,7 +376,7 @@ def compile_cmd(cmd: lark.Tree, env: Env) -> str:
                 f"   mov rsi, rax\n"
                 f"   mov rdi, read\n"
                 f"   xor rax, rax\n"
-                f"   call __isoc99_scanf\n")
+                f"   call {F_LEADER}scanf\n")
     else:
         raise Exception("Not implemented", cmd.data)
 
