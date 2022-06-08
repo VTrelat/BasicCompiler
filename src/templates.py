@@ -1,4 +1,4 @@
-LINUX_TEMPLATE = """extern printf, atoi, scanf
+LINUX_TEMPLATE = """extern printf, atoi, scanf, malloc
 global main
 default rel
 section .data
@@ -13,7 +13,7 @@ section .text
 
 FUN_DECL"""
 
-DARWIN_TEMPLATE = """extern _printf, _atoi, _scanf
+DARWIN_TEMPLATE = """extern _printf, _atoi, _scanf, _malloc
 global _main
 default rel
 section .data

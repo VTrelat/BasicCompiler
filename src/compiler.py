@@ -69,6 +69,7 @@ expr : ID -> variable
      | MONOP expr -> monexpr
      | deref -> deref
      | ID "(" expr? ("," expr)* ")" -> fcall
+     | "giveMeMem" expr -> malloc
 deref : "*" deref -> follow_pointer
       | ID -> variable
 cmd : TYPE ID "=" expr ";" -> initialization
@@ -144,6 +145,8 @@ def prettify_expr(expr: lark.Tree) -> str:
         comparator = expr.children[1].value
         rhs = prettify_expr(expr.children[2])
         return f"{lhs} {comparator} {rhs}"
+    elif expr.data == "malloc":
+        return f"giveMeMem {prettify_expr(expr.children[0])}"
     else:
         raise Exception("Unknown expr", expr.data)
 
@@ -254,6 +257,11 @@ def compile_expr(expr: lark.Tree, env: dict[str, int] = None, varDict: dict[str,
         env.curVar = ""
         env.pdepth = 0
         return res
+    elif expr.data == "malloc":
+        e = compile_expr(expr.children[0], env)
+        return (f"{e}\n"
+                f"   mov rdi, rax\n"
+                f"   call malloc\n")
     elif expr.data == "parenexpr":
         return compile_expr(expr.children[0], env)
     elif expr.data == "function":
