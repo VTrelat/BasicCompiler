@@ -79,7 +79,7 @@ cmd : TYPE ID "=" expr ";" -> initialization
     | "if" "(" expr ")" "{" bloc "}" -> if
     | "if" "(" expr ")" "{" bloc "}" "else" "{" bloc "}" -> ifelse
     | cmd ";" cmd
-    | "printf" "(" expr ")" ";" -> printf
+    | "putOnScreen" expr ";" -> printf
     | COMMENT -> comment
     | "giveMeBack" expr ";" -> return
     | "getMeVar" ID ";" -> readint
@@ -177,7 +177,7 @@ def prettify_cmd(cmd: lark.Tree, indent: str) -> str:
                 f"{prettify_bloc(cmd.children[2], indent)}\n"
                 f"{indent}}}")
     elif cmd.data == "printf":
-        return f"printf({prettify_expr(cmd.children[0])});"
+        return f"putOnScreen {prettify_expr(cmd.children[0])};"
     elif cmd.data == "comment":
         return cmd.children[0].value.strip()
     elif cmd.data == "return":
@@ -218,7 +218,7 @@ def compile_expr(expr: lark.Tree, env: dict[str, int] = None, varDict: dict[str,
         env.curVar = varID
         return f"   {cmd} rax, {ASM_POINTER_SIZE[size]} [rbp{offsets[varID]:+}]"
     elif expr.data == "number":
-        return f"   mov rax, {expr.children[0].value}"
+        return f"mov rax, {expr.children[0].value}"
     elif expr.data == "binexpr":
         e1 = compile_expr(expr.children[0], env)
         e2 = compile_expr(expr.children[2], env)
@@ -278,7 +278,8 @@ def compile_expr(expr: lark.Tree, env: dict[str, int] = None, varDict: dict[str,
         args = '\n'.join(compile_expr(e, env) +
                          '\n   push rax' for e in expr.children[1:])
         callee_offests = env.offsets[expr.children[0].value]
-        argsSize = max(callee_offests.values()) - 8 if len(callee_offests.values()) > 0 else 0
+        argsSize = max(callee_offests.values()) - \
+            8 if len(callee_offests.values()) > 0 else 0
         return (f"{args}\n"
                 f"   call {calleeID}\n"
                 f"   add rsp, {argsSize}\n")
@@ -366,7 +367,7 @@ def compile_cmd(cmd: lark.Tree, env: Env) -> str:
                 f"   pop rsi\n"
                 f"   add rsp, {varSize}\n"
                 f"{compile_expr(cmd.children[0], env)}\n"
-                f"   {cohersion}"
+                f"{cohersion}"
                 f"   pop rbp\n"
                 f"   ret\n")
     elif cmd.data == "readint":
@@ -474,8 +475,6 @@ def main(argv):
 
 if __name__ == "__main__":
     main(sys.argv[1:])
-
-
 
 
 # if len(sys.argv) > 1:
