@@ -49,7 +49,7 @@ An input file can be prettified with respect to the Lark grammar with the functi
 
 > **DISCLAIMER**: There is no check before compiling the code. As long as an expression is valid, it will be compiled. We might implement a checker later, but for now, the programmer is responsible for making sensible code. One could for instance dereference a variable, but the outcome will be undefined.
 
--   functions: One can write and call functions within the code. The function calls use 32bit convention (variables are put on the stack and the function is then called).
+-   functions: One can write and call functions within the code. The function calls use 32bit convention (variables are put on the stack and the function is then called). Recursion is supported.
 
 -   pointers: for now, arithmetic of pointers does not work (the size of what the pointer points to is not detected, but the programmer might still do the maths themselves). However one can get references to variables and dereference pointers (just like in C).
 
